@@ -6,5 +6,4 @@ theme:
   language: zh
 nav:
   - 首页: index.md
-  - ECNU CLI: ecnu.md
   - English: index.en.md
