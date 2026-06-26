@@ -5,19 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ChatNet"
 dynamic = ["version"]
-description = "ChatArch network and campus-network CLI"
+description = "ChatArch generic network helper package"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
     "click>=8.0",
-    "chatstyle>=0.1.0",
-    "chatenv>=0.1.1",
     "requests>=2.0",
-    "pycryptodome>=3.0",
 ]
 authors = [{name = "ChatArch", email = "1073853456@qq.com"}]
-keywords = ["chatnet", "chatarch", "cli"]
+keywords = ["chatnet", "chatarch", "network", "http"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -26,16 +23,12 @@ classifiers = [
 [project.scripts]
 chatnet = "chatnet.cli:main"
 
-[project.entry-points."chatenv.configs"]
-chatnet = "chatnet.config"
-
 [project.urls]
 Homepage = "https://github.com/ChatArch/ChatNet"
 Repository = "https://github.com/ChatArch/ChatNet"
 Documentation = "https://ChatArch.github.io/ChatNet"
 
 [project.optional-dependencies]
-captcha = ["ddddocr", "numpy", "pillow"]
 dev = ["build", "pytest", "twine"]
 docs = ["mkdocs>=1.4.0", "mkdocs-material>=9.0.0", "mike>=2.0.0"]
 

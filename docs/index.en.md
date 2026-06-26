@@ -1,12 +1,5 @@
-# ChatNet Docs
+# ChatNet
 
-Long-lived documentation for `ChatNet` lives here.
+ChatNet provides generic network/portal helper primitives for ChatArch packages.
 
-## Local Preview
-
-```bash
-pip install -e ".[docs]"
-mkdocs serve
-```
-
-Chinese version: [index.md](index.md).
+ECNU-specific application logic belongs in `ChatECNU`.

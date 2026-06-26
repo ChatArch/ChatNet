@@ -1,6 +1,35 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-06-27
+
+### Changed
+
+- Refactor ChatNet into the generic ChatArch network helper layer.
+- Replace the ECNU-specific `chatnet ecnu` application surface with generic network commands:
+  - `chatnet ping`
+  - `chatnet ssh`
+  - `chatnet links`
+  - `chatnet services`
+- Slim package dependencies to generic runtime requirements: `click` and `requests`.
+- Update README and docs to describe ChatNet as an application-neutral network foundation package.
+
+### Added
+
+- Add `chatnet.scanner` for ping and TCP port scanning helpers.
+- Add `chatnet.link_check` for URL extraction, URL checks, and service health checks.
+- Add `chatnet.service_urls` for service URL normalization and token query handling.
+- Add `chatnet.portal` for reusable browser-like session/cookie state, HTML table parsing, and request/curl preview helpers.
+- Add `chatnet.mcp` for MCP registration of generic network scan helpers.
+
+### Removed
+
+- Remove ECNU application-layer modules from ChatNet:
+  - `src/chatnet/ecnu/*`
+  - `src/chatnet/config.py`
+  - ECNU docs and ECNU mock CLI tests.
+- Remove ECNU-specific dependencies from ChatNet. ECNU login/session/visitor/CAPTCHA behavior moves to the separate ChatECNU package and should depend on this ChatNet line after release.
+
+## 0.1.2
 
 ### Changed
 
@@ -14,7 +43,7 @@
 - Add `chatnet ecnu visitor default` plus `ECNU_VISITOR_PASSWORD1`, `ECNU_VISITOR_PASSWORD2`, and `ECNU_VISITOR_REMARK` for deterministic default visitor provisioning.
 - Refactor ECNU login input resolution so manual and auto login share the same credential handling path.
 
-## 2026-06-15
+## 0.1.1 - 2026-06-15
 
 ### Added
 
@@ -25,10 +54,6 @@
 
 ### Changed
 
-- 准备 `0.1.1` 发版，用于验证 PyPI Trusted Publishing 免 token 发布流程。
-
-- 发布 workflow 改为显式 `v*` tag / `workflow_dispatch` 触发，使用 PyPI Trusted Publishing（`id-token: write` + `environment: pypi`），不再依赖仓库级 PyPI token secret。
-
+- Prepare `0.1.1` release to verify PyPI Trusted Publishing without repository-level PyPI token secrets.
+- Change publish workflow to explicit `v*` tag / `workflow_dispatch` triggers with PyPI Trusted Publishing (`id-token: write` + `environment: pypi`).
 - Load ECNU CLI defaults from chatenv and move default ECNU session/cache paths under `~/.chatarch/cache/chatnet/`.
-
-### Fixed
