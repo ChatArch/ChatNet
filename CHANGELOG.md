@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Add `chatnet proxy serve` for non-sudo explicit HTTP/HTTPS CONNECT forward proxy serving with CIDR allowlist and optional Basic auth.
+- Add `chatnet proxy check` for validating target URLs through an explicit proxy.
+- Add `chatnet proxy autostart print|install` for non-sudo user systemd autostart templates.
+- Add reusable `chatnet.forward_proxy` helpers so the proxy server can be embedded from Python without going through the CLI.
+
 ## 0.2.0 - 2026-06-27
 
 ### Changed
