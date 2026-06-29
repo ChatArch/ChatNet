@@ -24,7 +24,18 @@ chatnet links --url https://example.com
 CHATNET_PROXY_PASSWORD='<password>' chatnet proxy serve --bind 0.0.0.0 --port 18080 --allow-cidr 172.23.0.0/16 --user chatnet
 CHATNET_PROXY_PASSWORD='<password>' chatnet proxy check --proxy-url http://127.0.0.1:18080 --user chatnet
 chatnet proxy autostart print --bind 0.0.0.0 --port 18080 --allow-cidr 172.23.0.0/16 --user chatnet
+chatenv status -t chatnet --detail
 python -m pytest -q
+```
+
+Proxy defaults can also come from ChatEnv under `$CHATARCH_HOME/envs/ChatNet/.env`:
+
+```bash
+CHATNET_PROXY_BIND='127.0.0.1'
+CHATNET_PROXY_PORT='18080'
+CHATNET_PROXY_ALLOW_CIDR='127.0.0.0/8'
+CHATNET_PROXY_USER='chatnet'
+CHATNET_PROXY_PASSWORD='<password>'
 ```
 
 ## Boundary

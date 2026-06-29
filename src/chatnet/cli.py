@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import click
+from chatstyle import CommandConstraint, CommandField, CommandSchema, add_interactive_option, resolve_command_inputs
 
 from chatnet import __version__
 from chatnet.link_check import check_service_url, check_urls, collect_urls
@@ -178,30 +179,131 @@ def services(chromium_url: str | None, chromium_token: str | None, chromedriver_
         raise SystemExit(2)
 
 
+def _load_proxy_defaults() -> dict[str, str | None]:
+    from chatnet.config import load_chatnet_proxy_config
+
+    config = load_chatnet_proxy_config()
+    return {
+        "bind": config.CHATNET_PROXY_BIND.value,
+        "port": config.CHATNET_PROXY_PORT.value,
+        "allow_cidr": config.CHATNET_PROXY_ALLOW_CIDR.value,
+        "username": config.CHATNET_PROXY_USER.value,
+        "password": config.CHATNET_PROXY_PASSWORD.value,
+    }
+
+
+def _proxy_default(name: str) -> str | None:
+    value = _load_proxy_defaults().get(name)
+    return str(value) if value not in (None, "") else None
+
+
+def _optional_text(value: object) -> str | None:
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def _to_int(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(str(value))
+
+
+def _to_float(value: object) -> float | None:
+    if value in (None, ""):
+        return None
+    return float(str(value))
+
+
+def _auth_pair_constraint(values: dict[str, object]) -> str | None:
+    username = values.get("username")
+    password = values.get("password")
+    if bool(username) != bool(password):
+        return "--user/CHATNET_PROXY_USER and --password/CHATNET_PROXY_PASSWORD must be provided together."
+    return None
+
+
+_AUTH_PAIR_CONSTRAINT = CommandConstraint(_auth_pair_constraint)
+
+_PROXY_SERVE_SCHEMA = CommandSchema(
+    name="chatnet proxy serve",
+    fields=(
+        CommandField("bind", "Listen address", default_factory=lambda: _proxy_default("bind") or "127.0.0.1", normalizer=_optional_text),
+        CommandField("port", "Listen port", default_factory=lambda: _proxy_default("port") or 18080, normalizer=_to_int),
+        CommandField("allow_cidr", "Client CIDR allowlist", default_factory=lambda: _proxy_default("allow_cidr") or "127.0.0.0/8", normalizer=_optional_text),
+        CommandField("username", "Basic auth username", default_factory=lambda: _proxy_default("username"), normalizer=_optional_text),
+        CommandField("password", "Basic auth password", default_factory=lambda: _proxy_default("password"), sensitive=True, normalizer=_optional_text),
+        CommandField("timeout", "Socket timeout in seconds", default=30.0, normalizer=_to_float),
+    ),
+    constraints=(_AUTH_PAIR_CONSTRAINT,),
+)
+
+_PROXY_CHECK_SCHEMA = CommandSchema(
+    name="chatnet proxy check",
+    fields=(
+        CommandField("proxy_url", "Proxy URL", required=True, normalizer=_optional_text),
+        CommandField("target_url", "Target URL", default="https://www.gstatic.com/generate_204", normalizer=_optional_text),
+        CommandField("username", "Proxy Basic auth username", default_factory=lambda: _proxy_default("username"), normalizer=_optional_text),
+        CommandField("password", "Proxy Basic auth password", default_factory=lambda: _proxy_default("password"), sensitive=True, normalizer=_optional_text),
+        CommandField("expect_status", "Expected HTTP status", normalizer=_to_int),
+        CommandField("timeout", "Request timeout in seconds", default=10.0, normalizer=_to_float),
+    ),
+    constraints=(_AUTH_PAIR_CONSTRAINT,),
+)
+
+_PROXY_SERVICE_SCHEMA = CommandSchema(
+    name="chatnet proxy autostart",
+    fields=(
+        CommandField("service_name", "User systemd service name", default="chatnet-forward-proxy", normalizer=_optional_text),
+        CommandField("bind", "Listen address", default_factory=lambda: _proxy_default("bind") or "127.0.0.1", normalizer=_optional_text),
+        CommandField("port", "Listen port", default_factory=lambda: _proxy_default("port") or 18080, normalizer=_to_int),
+        CommandField("allow_cidr", "Client CIDR allowlist", default_factory=lambda: _proxy_default("allow_cidr") or "127.0.0.0/8", normalizer=_optional_text),
+        CommandField("username", "Basic auth username", default_factory=lambda: _proxy_default("username"), normalizer=_optional_text),
+        CommandField("env_file", "Systemd EnvironmentFile path", default="%h/.config/chatnet/proxy.env", normalizer=_optional_text),
+        CommandField("python_bin", "Python executable for ExecStart", default_factory=lambda: sys.executable, normalizer=_optional_text),
+    ),
+)
+
+
+def _resolve_inputs(schema: CommandSchema, provided: dict[str, object], interactive: bool | None, usage: str) -> dict[str, object]:
+    return resolve_command_inputs(schema=schema, provided=provided, interactive=interactive, usage=usage)
+
+
 @main.group(name="proxy")
 def proxy_group() -> None:
     """Explicit forward proxy helpers."""
 
 
 @proxy_group.command(name="serve")
-@click.option("--bind", default="127.0.0.1", show_default=True, help="Listen address. Use 0.0.0.0 only on trusted networks.")
-@click.option("--port", default=18080, show_default=True, type=int, help="Listen port. High ports work without sudo.")
-@click.option("--allow-cidr", default="127.0.0.0/8", show_default=True, help="Comma-separated client CIDR allowlist.")
-@click.option("--user", "username", default=None, help="Optional Basic auth username.")
+@click.option("--bind", default=None, help="Listen address. Defaults to CHATNET_PROXY_BIND or 127.0.0.1.")
+@click.option("--port", default=None, type=int, help="Listen port. Defaults to CHATNET_PROXY_PORT or 18080.")
+@click.option("--allow-cidr", default=None, help="Comma-separated client CIDR allowlist. Defaults to CHATNET_PROXY_ALLOW_CIDR or 127.0.0.0/8.")
+@click.option("--user", "username", default=None, help="Optional Basic auth username. Defaults to CHATNET_PROXY_USER.")
 @click.option(
     "--password",
     default=None,
     envvar="CHATNET_PROXY_PASSWORD",
-    help="Optional Basic auth password. Prefer CHATNET_PROXY_PASSWORD to avoid shell history.",
+    help="Optional Basic auth password. Prefer CHATNET_PROXY_PASSWORD or ChatEnv.",
 )
-@click.option("--timeout", default=30.0, show_default=True, type=float, help="Socket timeout in seconds.")
-def proxy_serve(bind: str, port: int, allow_cidr: str, username: str | None, password: str | None, timeout: float) -> None:
+@click.option("--timeout", default=None, type=float, help="Socket timeout in seconds. Defaults to 30.")
+@add_interactive_option
+def proxy_serve(bind: str | None, port: int | None, allow_cidr: str | None, username: str | None, password: str | None, timeout: float | None, interactive: bool | None) -> None:
     """Serve a non-sudo HTTP/HTTPS CONNECT forward proxy."""
 
     from chatnet.forward_proxy import ForwardProxyConfig, parse_cidrs, serve_forward_proxy
 
-    if (username is None) != (password is None):
-        raise click.ClickException("--user and --password/CHATNET_PROXY_PASSWORD must be provided together.")
+    values = _resolve_inputs(
+        _PROXY_SERVE_SCHEMA,
+        {"bind": bind, "port": port, "allow_cidr": allow_cidr, "username": username, "password": password, "timeout": timeout},
+        interactive,
+        "Usage: chatnet proxy serve [OPTIONS] [-i|-I]",
+    )
+    bind = str(values["bind"])
+    port = int(str(values["port"]))
+    allow_cidr = str(values["allow_cidr"])
+    username = values["username"] if values["username"] is None else str(values["username"])
+    password = values["password"] if values["password"] is None else str(values["password"])
+    timeout = float(str(values["timeout"]))
     try:
         cidrs = parse_cidrs(allow_cidr)
     except ValueError as exc:
@@ -227,33 +329,45 @@ def proxy_serve(bind: str, port: int, allow_cidr: str, username: str | None, pas
 
 
 @proxy_group.command(name="check")
-@click.option("--proxy-url", required=True, help="Proxy URL, e.g. http://127.0.0.1:18080.")
-@click.option("--url", "target_url", default="https://www.gstatic.com/generate_204", show_default=True, help="URL to fetch through the proxy.")
-@click.option("--user", "username", default=None, help="Optional proxy Basic auth username.")
+@click.option("--proxy-url", default=None, help="Proxy URL, e.g. http://127.0.0.1:18080.")
+@click.option("--url", "target_url", default=None, help="URL to fetch through the proxy. Defaults to https://www.gstatic.com/generate_204.")
+@click.option("--user", "username", default=None, help="Optional proxy Basic auth username. Defaults to CHATNET_PROXY_USER.")
 @click.option(
     "--password",
     default=None,
     envvar="CHATNET_PROXY_PASSWORD",
-    help="Optional proxy Basic auth password. Prefer CHATNET_PROXY_PASSWORD.",
+    help="Optional proxy Basic auth password. Prefer CHATNET_PROXY_PASSWORD or ChatEnv.",
 )
 @click.option("--expect-status", default=None, type=int, help="Expected HTTP status. Defaults to any 2xx/3xx response.")
-@click.option("--timeout", default=10.0, show_default=True, type=float, help="Request timeout in seconds.")
+@click.option("--timeout", default=None, type=float, help="Request timeout in seconds. Defaults to 10.")
 @click.option("--show-body", is_flag=True, help="Print a short response body preview.")
+@add_interactive_option
 def proxy_check(
-    proxy_url: str,
-    target_url: str,
+    proxy_url: str | None,
+    target_url: str | None,
     username: str | None,
     password: str | None,
     expect_status: int | None,
-    timeout: float,
+    timeout: float | None,
     show_body: bool,
+    interactive: bool | None,
 ) -> None:
     """Check a URL through an explicit forward proxy."""
 
     from chatnet.forward_proxy_check import check_forward_proxy
 
-    if (username is None) != (password is None):
-        raise click.ClickException("--user and --password/CHATNET_PROXY_PASSWORD must be provided together.")
+    values = _resolve_inputs(
+        _PROXY_CHECK_SCHEMA,
+        {"proxy_url": proxy_url, "target_url": target_url, "username": username, "password": password, "expect_status": expect_status, "timeout": timeout},
+        interactive,
+        "Usage: chatnet proxy check --proxy-url URL [OPTIONS] [-i|-I]",
+    )
+    proxy_url = str(values["proxy_url"])
+    target_url = str(values["target_url"])
+    username = values["username"] if values["username"] is None else str(values["username"])
+    password = values["password"] if values["password"] is None else str(values["password"])
+    expect_status = values["expect_status"] if values["expect_status"] is None else int(str(values["expect_status"]))
+    timeout = float(str(values["timeout"]))
     result = check_forward_proxy(
         proxy_url,
         target_url,
@@ -282,12 +396,12 @@ def proxy_autostart() -> None:
 
 
 _PROXY_SERVICE_OPTIONS = [
-    click.option("--service-name", default="chatnet-forward-proxy", show_default=True, help="User systemd service name."),
-    click.option("--bind", default="127.0.0.1", show_default=True, help="Listen address for the service."),
-    click.option("--port", default=18080, show_default=True, type=int, help="Listen port."),
-    click.option("--allow-cidr", default="127.0.0.0/8", show_default=True, help="Comma-separated client CIDR allowlist."),
-    click.option("--user", "username", default=None, help="Optional Basic auth username."),
-    click.option("--env-file", default="%h/.config/chatnet/proxy.env", show_default=True, help="Systemd EnvironmentFile path for CHATNET_PROXY_PASSWORD."),
+    click.option("--service-name", default=None, help="User systemd service name. Defaults to chatnet-forward-proxy."),
+    click.option("--bind", default=None, help="Listen address for the service. Defaults to CHATNET_PROXY_BIND or 127.0.0.1."),
+    click.option("--port", default=None, type=int, help="Listen port. Defaults to CHATNET_PROXY_PORT or 18080."),
+    click.option("--allow-cidr", default=None, help="Comma-separated client CIDR allowlist. Defaults to CHATNET_PROXY_ALLOW_CIDR or 127.0.0.0/8."),
+    click.option("--user", "username", default=None, help="Optional Basic auth username. Defaults to CHATNET_PROXY_USER."),
+    click.option("--env-file", default=None, help="Systemd EnvironmentFile path for CHATNET_PROXY_PASSWORD. Defaults to %h/.config/chatnet/proxy.env."),
     click.option("--python", "python_bin", default=None, help="Python executable for ExecStart. Defaults to current Python."),
 ]
 
@@ -314,32 +428,66 @@ def _service_config(service_name: str, bind: str, port: int, allow_cidr: str, us
 
 @proxy_autostart.command(name="print")
 @_apply_proxy_service_options
-def proxy_autostart_print(service_name: str, bind: str, port: int, allow_cidr: str, username: str | None, env_file: str, python_bin: str | None) -> None:
+@add_interactive_option
+def proxy_autostart_print(service_name: str | None, bind: str | None, port: int | None, allow_cidr: str | None, username: str | None, env_file: str | None, python_bin: str | None, interactive: bool | None) -> None:
     """Print a user systemd unit without writing files."""
 
     from chatnet.forward_proxy_service import render_systemd_user_unit
 
-    click.echo(render_systemd_user_unit(_service_config(service_name, bind, port, allow_cidr, username, env_file, python_bin)))
+    values = _resolve_inputs(
+        _PROXY_SERVICE_SCHEMA,
+        {"service_name": service_name, "bind": bind, "port": port, "allow_cidr": allow_cidr, "username": username, "env_file": env_file, "python_bin": python_bin},
+        interactive,
+        "Usage: chatnet proxy autostart print [OPTIONS] [-i|-I]",
+    )
+    config = _service_config(
+        str(values["service_name"]),
+        str(values["bind"]),
+        int(str(values["port"])),
+        str(values["allow_cidr"]),
+        values["username"] if values["username"] is None else str(values["username"]),
+        str(values["env_file"]),
+        str(values["python_bin"]),
+    )
+    click.echo(render_systemd_user_unit(config))
 
 
 @proxy_autostart.command(name="install")
 @_apply_proxy_service_options
 @click.option("--enable", is_flag=True, help="Run systemctl --user enable --now after writing the unit.")
+@add_interactive_option
 def proxy_autostart_install(
-    service_name: str,
-    bind: str,
-    port: int,
-    allow_cidr: str,
+    service_name: str | None,
+    bind: str | None,
+    port: int | None,
+    allow_cidr: str | None,
     username: str | None,
-    env_file: str,
+    env_file: str | None,
     python_bin: str | None,
     enable: bool,
+    interactive: bool | None,
 ) -> None:
     """Install a user systemd unit without sudo."""
 
     from chatnet.forward_proxy_service import default_env_file_path, install_systemd_user_unit, render_env_file_example
 
-    config = _service_config(service_name, bind, port, allow_cidr, username, env_file, python_bin)
+    values = _resolve_inputs(
+        _PROXY_SERVICE_SCHEMA,
+        {"service_name": service_name, "bind": bind, "port": port, "allow_cidr": allow_cidr, "username": username, "env_file": env_file, "python_bin": python_bin},
+        interactive,
+        "Usage: chatnet proxy autostart install [OPTIONS] [-i|-I]",
+    )
+    username = values["username"] if values["username"] is None else str(values["username"])
+    env_file = str(values["env_file"])
+    config = _service_config(
+        str(values["service_name"]),
+        str(values["bind"]),
+        int(str(values["port"])),
+        str(values["allow_cidr"]),
+        username,
+        env_file,
+        str(values["python_bin"]),
+    )
     try:
         unit_path = install_systemd_user_unit(config, enable=enable)
     except subprocess.CalledProcessError as exc:

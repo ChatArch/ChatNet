@@ -1,6 +1,7 @@
 from click.testing import CliRunner
 
 from chatnet.cli import _redact_url_token, main
+from chatnet.config import ChatNetProxyConfig, load_chatnet_proxy_config
 from chatnet.forward_proxy import expected_basic_auth, is_client_allowed, parse_cidrs, proxy_auth_valid
 from chatnet.forward_proxy_check import build_proxy_url, redact_proxy_url
 from chatnet.forward_proxy_service import ForwardProxyServiceConfig, render_systemd_user_unit
@@ -76,9 +77,55 @@ def test_proxy_check_help_and_autostart_help():
     assert check_result.exit_code == 0
     assert "--proxy-url" in check_result.output
     assert "CHATNET_PROXY_PASSWORD" in check_result.output
+    assert "--interactive" in check_result.output
     assert autostart_result.exit_code == 0
     assert "print" in autostart_result.output
     assert "install" in autostart_result.output
+
+
+def test_chatnet_proxy_config_loads_from_chatenv(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHATARCH_HOME", str(tmp_path / "arch"))
+    monkeypatch.delenv("CHATNET_PROXY_BIND", raising=False)
+    env_file = tmp_path / "arch" / "envs" / "ChatNet" / ".env"
+    env_file.parent.mkdir(parents=True)
+    env_file.write_text(
+        "CHATNET_PROXY_BIND='0.0.0.0'\n"
+        "CHATNET_PROXY_PORT='18081'\n"
+        "CHATNET_PROXY_ALLOW_CIDR='172.23.0.0/16'\n"
+        "CHATNET_PROXY_USER='chatnet'\n"
+        "CHATNET_PROXY_PASSWORD='placeholder-password'\n",
+        encoding="utf-8",
+    )
+
+    config = load_chatnet_proxy_config()
+
+    assert config is ChatNetProxyConfig
+    assert config.CHATNET_PROXY_BIND.value == "0.0.0.0"
+    assert config.CHATNET_PROXY_PORT.value == "18081"
+    assert config.CHATNET_PROXY_ALLOW_CIDR.value == "172.23.0.0/16"
+    assert config.CHATNET_PROXY_PASSWORD.is_sensitive is True
+
+
+def test_proxy_autostart_uses_chatenv_defaults(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHATARCH_HOME", str(tmp_path / "arch"))
+    env_file = tmp_path / "arch" / "envs" / "ChatNet" / ".env"
+    env_file.parent.mkdir(parents=True)
+    env_file.write_text(
+        "CHATNET_PROXY_BIND='0.0.0.0'\n"
+        "CHATNET_PROXY_PORT='18081'\n"
+        "CHATNET_PROXY_ALLOW_CIDR='172.23.0.0/16'\n"
+        "CHATNET_PROXY_USER='chatnet'\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(main, ["proxy", "autostart", "print", "-I"])
+
+    assert result.exit_code == 0, result.output
+    assert "--bind 0.0.0.0" in result.output
+    assert "--port 18081" in result.output
+    assert "--allow-cidr 172.23.0.0/16" in result.output
+    assert "--user chatnet" in result.output
+    assert "placeholder-password" not in result.output
 
 
 def test_browser_portal_client_cookie_state(tmp_path):
