@@ -9,5 +9,7 @@ ChatNet provides generic network/portal helper primitives for ChatArch packages.
 - Browser service health checks for Chromium, Chromedriver, and Playwright endpoints.
 - Service URL helpers, including token query handling and path normalization.
 - Browser-like session/cookie state and HTML table parsing helpers.
+- Non-sudo explicit forward proxy serving, checking, and user autostart for trusted LAN clients.
+- ChatEnv provider metadata for `CHATNET_PROXY_*` defaults and masked proxy password handling.
 
 ECNU-specific application logic belongs in `ChatECNU`.
