@@ -20,6 +20,7 @@ Application-level campus portal logic belongs in packages such as `ChatECNU`, wh
 ```bash
 pip install -e ".[dev]"
 chatnet --help
+chatnet --tree
 chatnet links --url https://example.com
 CHATNET_PROXY_PASSWORD='<password>' chatnet proxy serve --bind 0.0.0.0 --port 18080 --allow-cidr 172.23.0.0/16 --user chatnet
 CHATNET_PROXY_PASSWORD='<password>' chatnet proxy check --proxy-url http://127.0.0.1:18080 --user chatnet

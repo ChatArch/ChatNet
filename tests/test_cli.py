@@ -16,10 +16,33 @@ def test_help_does_not_expose_ecnu_group():
 
     assert result.exit_code == 0
     assert "generic network helper" in result.output
+    assert "--tree" in result.output
     assert "ecnu" not in result.output.lower()
     assert "links" in result.output
     assert "services" in result.output
     assert "proxy" in result.output
+
+
+def test_tree_option_renders_registered_command_surface():
+    result = CliRunner().invoke(main, ["--tree"])
+
+    assert result.exit_code == 0, result.output
+    assert "chatnet # ChatNet generic network helper CLI" in result.output
+    assert "├── --help" in result.output
+    assert "├── --version" in result.output
+    assert "├── --tree" in result.output
+    assert "├── ping" in result.output
+    assert "├── ssh" in result.output
+    assert "├── links" in result.output
+    assert "├── services" in result.output
+    assert "└── proxy" in result.output
+    assert "    ├── serve" in result.output
+    assert "    ├── check" in result.output
+    assert "    └── autostart" in result.output
+    assert "        ├── print" in result.output
+    assert "        └── install" in result.output
+    assert "hello" not in result.output.lower()
+    assert "ecnu" not in result.output.lower()
 
 
 def test_proxy_serve_help_documents_non_sudo_options():

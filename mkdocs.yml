@@ -1,9 +1,44 @@
 site_name: ChatNet 文档
-site_url: https://ChatArch.github.io/ChatNet
+site_url: https://arch.gh.wzhecnu.cn/ChatNet/
 repo_url: https://github.com/ChatArch/ChatNet
+repo_name: ChatArch/ChatNet
+edit_uri: edit/master/docs/
+docs_dir: docs/
 theme:
   name: material
   language: zh
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: zh
+          default: true
+          name: 中文
+          build: true
+          site_name: ChatNet 文档
+        - locale: en
+          name: English
+          build: true
+          site_name: ChatNet Documentation
+          nav_translations:
+            首页: Home
+            命令与接口: Commands and Interfaces
+            CLI 树: CLI Tree
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
 nav:
   - 首页: index.md
-  - English: index.en.md
+  - 命令与接口:
+      - CLI 树: cli-tree.md

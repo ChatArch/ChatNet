@@ -19,8 +19,94 @@ from chatnet.scanner import ping_scan, port_scan
 from chatnet.service_urls import append_token, ensure_path
 
 
+def _format_metavar(name: str) -> str:
+    return name.replace("_", "-").upper()
+
+
+def _format_argument(param: click.Argument) -> str:
+    metavar = _format_metavar(param.name)
+    return metavar if param.required else f"[{metavar}]"
+
+
+def _format_option(param: click.Option) -> str:
+    preferred = next((opt for opt in param.opts if opt.startswith("--")), param.opts[0])
+    if param.is_flag or param.flag_value is not None:
+        return preferred
+    metavar = param.metavar or _format_metavar(param.name)
+    if not param.required:
+        return f"[{preferred} {metavar}]"
+    return f"{preferred} {metavar}"
+
+
+def _command_signature(command: click.Command) -> str:
+    parts: list[str] = []
+    for param in command.params:
+        if isinstance(param, click.Argument):
+            parts.append(_format_argument(param))
+        elif isinstance(param, click.Option):
+            rendered = _format_option(param)
+            if rendered not in ("--help", "--version", "--tree"):
+                parts.append(rendered)
+    return " " + " ".join(parts) if parts else ""
+
+
+def _short_help(command: click.Command) -> str:
+    return (command.short_help or command.help or "").strip().rstrip(".")
+
+
+def _group_items(group: click.Group) -> list[tuple[str, str | click.Command]]:
+    items: list[tuple[str, str | click.Command]] = []
+    if group is main:
+        items.extend([
+            ("--help", "Show help for the current command"),
+            ("--version", "Show package version"),
+            ("--tree", "Print the registered CLI tree"),
+        ])
+    for name, command in group.commands.items():
+        if command.hidden:
+            continue
+        items.append((name, command))
+    return items
+
+
+def render_cli_tree(root: click.Group | None = None) -> str:
+    """Render the visible registered Click command tree."""
+
+    if root is None:
+        root = main
+    lines = [f"{root.name or 'chatnet'} # {_short_help(root)}"]
+
+    def walk(items: list[tuple[str, str | click.Command]], prefix: str = "") -> None:
+        for index, (name, item) in enumerate(items):
+            last = index == len(items) - 1
+            branch = "└──" if last else "├──"
+            next_prefix = prefix + ("    " if last else "│   ")
+            if isinstance(item, str):
+                lines.append(f"{prefix}{branch} {name} # {item}")
+                continue
+            signature = _command_signature(item)
+            help_text = _short_help(item)
+            suffix = f" # {help_text}" if help_text else ""
+            lines.append(f"{prefix}{branch} {name}{signature}{suffix}")
+            if isinstance(item, click.Group):
+                walk(_group_items(item), next_prefix)
+
+    walk(_group_items(root))
+    return "\n".join(lines)
+
+
+def _tree_callback(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
+    if not value or ctx.resilient_parsing:
+        return
+    if not isinstance(ctx.command, click.Group):
+        raise click.ClickException("--tree is only available on command groups")
+    click.echo(render_cli_tree(ctx.command))
+    ctx.exit()
+
+
 @click.group(name="chatnet")
 @click.version_option(__version__, prog_name="chatnet")
+@click.option("--tree", is_flag=True, is_eager=True, expose_value=False, callback=_tree_callback, help="Print the registered CLI tree.")
 def main() -> None:
     """ChatNet generic network helper CLI."""
 

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
-    "chatenv>=0.2.0,<0.3.0",
+    "chatenv>=0.2.4,<0.3.0",
     "chatstyle>=0.1.0,<0.2.0",
     "click>=8.0",
     "requests>=2.0",
@@ -28,14 +28,14 @@ chatnet = "chatnet.cli:main"
 [project.urls]
 Homepage = "https://github.com/ChatArch/ChatNet"
 Repository = "https://github.com/ChatArch/ChatNet"
-Documentation = "https://ChatArch.github.io/ChatNet"
+Documentation = "https://arch.gh.wzhecnu.cn/ChatNet/"
 
 [project.entry-points."chatenv.configs"]
 chatnet = "chatnet.config"
 
 [project.optional-dependencies]
 dev = ["build", "pytest", "twine"]
-docs = ["mkdocs>=1.4.0", "mkdocs-material>=9.0.0", "mike>=2.0.0"]
+docs = ["mkdocs>=1.6,<2.0", "mkdocs-material>=9.5,<9.7", "mkdocs-static-i18n>=1.2,<2.0", "mike>=2.0,<3.0"]
 
 [tool.setuptools.dynamic]
 version = {attr = "chatnet.__version__"}

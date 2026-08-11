@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.2 - 2026-08-11
+
+### Added
+
+- Add top-level `chatnet --tree` generated from the registered Click command surface.
+- Add CLI tree documentation and tests covering `ping`, `ssh`, `links`, `services`, and nested `proxy` commands.
+
+### Changed
+
+- Align docs metadata with the ChatArch docs domain and strict-build dependency bounds.
+- Match the PyPI Trusted Publisher `(Any)` environment by removing the workflow-level `pypi` environment.
+- Raise the ChatEnv dependency floor to the currently released `0.2.4` line.
+
 ## 0.2.1 - 2026-06-29
 
 ### Added
