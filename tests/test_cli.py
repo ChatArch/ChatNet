@@ -1,5 +1,7 @@
 from click.testing import CliRunner
+from chatstyle import render_click_tree
 
+from chatnet import __version__
 from chatnet.cli import _redact_url_token, main
 from chatnet.config import ChatNetProxyConfig, load_chatnet_proxy_config
 from chatnet.forward_proxy import expected_basic_auth, is_client_allowed, parse_cidrs, proxy_auth_valid
@@ -17,30 +19,47 @@ def test_help_does_not_expose_ecnu_group():
     assert result.exit_code == 0
     assert "generic network helper" in result.output
     assert "--tree" in result.output
+    assert "--tree-brief" in result.output
     assert "ecnu" not in result.output.lower()
     assert "links" in result.output
     assert "services" in result.output
     assert "proxy" in result.output
 
 
-def test_tree_option_renders_registered_command_surface():
+def test_version_option_reports_package_version():
+    result = CliRunner().invoke(main, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.output == f"chatnet, version {__version__}\n"
+
+
+def test_tree_option_renders_registered_command_surface_with_signatures():
     result = CliRunner().invoke(main, ["--tree"])
 
     assert result.exit_code == 0, result.output
-    assert "chatnet # ChatNet generic network helper CLI" in result.output
-    assert "├── --help" in result.output
-    assert "├── --version" in result.output
-    assert "├── --tree" in result.output
-    assert "├── ping" in result.output
-    assert "├── ssh" in result.output
-    assert "├── links" in result.output
-    assert "├── services" in result.output
-    assert "└── proxy" in result.output
-    assert "    ├── serve" in result.output
-    assert "    ├── check" in result.output
-    assert "    └── autostart" in result.output
-    assert "        ├── print" in result.output
-    assert "        └── install" in result.output
+    assert result.output == render_click_tree(main, root_name="chatnet") + "\n"
+    assert result.output.splitlines().count("chatnet") == 1
+    assert "├── --tree-brief" in result.output
+    assert "ping [--network NETWORK]" in result.output
+    assert "ssh [--input INPUT-FILE]" in result.output
+    assert "proxy  # Run explicit proxy helpers; credentials stay masked." in result.output
+    assert "install [--service-name SERVICE-NAME]" in result.output
+    assert "long-running listener with no secret output" in result.output
+    assert "hello" not in result.output.lower()
+    assert "ecnu" not in result.output.lower()
+
+
+def test_tree_brief_keeps_nodes_and_descriptions_but_omits_signatures():
+    result = CliRunner().invoke(main, ["--tree-brief"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == render_click_tree(main, root_name="chatnet", brief=True) + "\n"
+    assert result.output.splitlines().count("chatnet") == 1
+    assert "├── --tree-brief" in result.output
+    assert "├── ping  # Scan hosts with ICMP" in result.output
+    assert "│   └── serve  # Serve a forward proxy" in result.output
+    assert "NETWORK" not in result.output
+    assert "--password" not in result.output
     assert "hello" not in result.output.lower()
     assert "ecnu" not in result.output.lower()
 

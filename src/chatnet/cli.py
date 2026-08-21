@@ -11,7 +11,14 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import click
-from chatstyle import CommandConstraint, CommandField, CommandSchema, add_interactive_option, resolve_command_inputs
+from chatstyle import (
+    CommandConstraint,
+    CommandField,
+    CommandSchema,
+    add_interactive_option,
+    add_tree_option,
+    resolve_command_inputs,
+)
 
 from chatnet import __version__
 from chatnet.link_check import check_service_url, check_urls, collect_urls
@@ -19,94 +26,9 @@ from chatnet.scanner import ping_scan, port_scan
 from chatnet.service_urls import append_token, ensure_path
 
 
-def _format_metavar(name: str) -> str:
-    return name.replace("_", "-").upper()
-
-
-def _format_argument(param: click.Argument) -> str:
-    metavar = _format_metavar(param.name)
-    return metavar if param.required else f"[{metavar}]"
-
-
-def _format_option(param: click.Option) -> str:
-    preferred = next((opt for opt in param.opts if opt.startswith("--")), param.opts[0])
-    if param.is_flag or param.flag_value is not None:
-        return preferred
-    metavar = param.metavar or _format_metavar(param.name)
-    if not param.required:
-        return f"[{preferred} {metavar}]"
-    return f"{preferred} {metavar}"
-
-
-def _command_signature(command: click.Command) -> str:
-    parts: list[str] = []
-    for param in command.params:
-        if isinstance(param, click.Argument):
-            parts.append(_format_argument(param))
-        elif isinstance(param, click.Option):
-            rendered = _format_option(param)
-            if rendered not in ("--help", "--version", "--tree"):
-                parts.append(rendered)
-    return " " + " ".join(parts) if parts else ""
-
-
-def _short_help(command: click.Command) -> str:
-    return (command.short_help or command.help or "").strip().rstrip(".")
-
-
-def _group_items(group: click.Group) -> list[tuple[str, str | click.Command]]:
-    items: list[tuple[str, str | click.Command]] = []
-    if group is main:
-        items.extend([
-            ("--help", "Show help for the current command"),
-            ("--version", "Show package version"),
-            ("--tree", "Print the registered CLI tree"),
-        ])
-    for name, command in group.commands.items():
-        if command.hidden:
-            continue
-        items.append((name, command))
-    return items
-
-
-def render_cli_tree(root: click.Group | None = None) -> str:
-    """Render the visible registered Click command tree."""
-
-    if root is None:
-        root = main
-    lines = [f"{root.name or 'chatnet'} # {_short_help(root)}"]
-
-    def walk(items: list[tuple[str, str | click.Command]], prefix: str = "") -> None:
-        for index, (name, item) in enumerate(items):
-            last = index == len(items) - 1
-            branch = "└──" if last else "├──"
-            next_prefix = prefix + ("    " if last else "│   ")
-            if isinstance(item, str):
-                lines.append(f"{prefix}{branch} {name} # {item}")
-                continue
-            signature = _command_signature(item)
-            help_text = _short_help(item)
-            suffix = f" # {help_text}" if help_text else ""
-            lines.append(f"{prefix}{branch} {name}{signature}{suffix}")
-            if isinstance(item, click.Group):
-                walk(_group_items(item), next_prefix)
-
-    walk(_group_items(root))
-    return "\n".join(lines)
-
-
-def _tree_callback(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
-    if not value or ctx.resilient_parsing:
-        return
-    if not isinstance(ctx.command, click.Group):
-        raise click.ClickException("--tree is only available on command groups")
-    click.echo(render_cli_tree(ctx.command))
-    ctx.exit()
-
-
 @click.group(name="chatnet")
 @click.version_option(__version__, prog_name="chatnet")
-@click.option("--tree", is_flag=True, is_eager=True, expose_value=False, callback=_tree_callback, help="Print the registered CLI tree.")
+@add_tree_option(renderer_options={"root_name": "chatnet"})
 def main() -> None:
     """ChatNet generic network helper CLI."""
 
@@ -116,7 +38,7 @@ def main() -> None:
 @click.option("-n", "--concurrency", default=50, show_default=True, help="Number of concurrent threads.")
 @click.option("-o", "--output", default=None, help="Output file path.")
 def ping(network: str, concurrency: int, output: str | None) -> None:
-    """Scan a network for active hosts using ICMP ping."""
+    """Scan hosts with ICMP; sends network traffic and may write --output."""
 
     try:
         active_hosts = ping_scan(network_segment=network, concurrency=concurrency, output_path=output)
@@ -136,7 +58,7 @@ def ping(network: str, concurrency: int, output: str | None) -> None:
 @click.option("-n", "--concurrency", default=50, show_default=True, help="Number of concurrent threads.")
 @click.option("-o", "--output", default=None, help="Output file path.")
 def ssh(input_file: str | None, network: str | None, port: int, concurrency: int, output: str | None) -> None:
-    """Scan IPs for open SSH or arbitrary TCP ports."""
+    """Scan TCP ports; sends network traffic and may write --output."""
 
     ip_list: list[str]
     if input_file:
@@ -175,7 +97,7 @@ def ssh(input_file: str | None, network: str | None, port: int, concurrency: int
 @click.option("--filter", "filter_regex", default=None, help="Optional regex to filter URLs.")
 @click.option("--timeout", default=6.0, show_default=True, help="Request timeout in seconds.")
 def links(path_value: Path, globs: tuple[str, ...], urls: tuple[str, ...], filter_regex: str | None, timeout: float) -> None:
-    """Check URL validity from a file/directory or explicit list."""
+    """Check URLs; reads local paths and sends HTTP requests."""
 
     target_urls = list(urls) if urls else collect_urls(path_value, globs)
     if filter_regex:
@@ -224,7 +146,7 @@ def _redact_url_token(url: str) -> str:
 @click.option("--playwright-url", default=None, help="Playwright service URL (or set CHATTOOL_PLAYWRIGHT_URL).")
 @click.option("--timeout", default=6.0, show_default=True, help="Request timeout in seconds.")
 def services(chromium_url: str | None, chromium_token: str | None, chromedriver_url: str | None, playwright_url: str | None, timeout: float) -> None:
-    """Check that chromium/chromedriver/playwright URLs respond with expected content."""
+    """Check browser services; sends requests and redacts Chromium tokens."""
 
     chromium_url = chromium_url or os.getenv("CHATTOOL_CHROMIUM_URL")
     chromedriver_url = chromedriver_url or os.getenv("CHATTOOL_CHROMEDRIVER_URL")
@@ -357,7 +279,7 @@ def _resolve_inputs(schema: CommandSchema, provided: dict[str, object], interact
 
 @main.group(name="proxy")
 def proxy_group() -> None:
-    """Explicit forward proxy helpers."""
+    """Run explicit proxy helpers; credentials stay masked."""
 
 
 @proxy_group.command(name="serve")
@@ -374,7 +296,7 @@ def proxy_group() -> None:
 @click.option("--timeout", default=None, type=float, help="Socket timeout in seconds. Defaults to 30.")
 @add_interactive_option
 def proxy_serve(bind: str | None, port: int | None, allow_cidr: str | None, username: str | None, password: str | None, timeout: float | None, interactive: bool | None) -> None:
-    """Serve a non-sudo HTTP/HTTPS CONNECT forward proxy."""
+    """Serve a forward proxy; long-running listener with no secret output."""
 
     from chatnet.forward_proxy import ForwardProxyConfig, parse_cidrs, serve_forward_proxy
 
@@ -438,7 +360,7 @@ def proxy_check(
     show_body: bool,
     interactive: bool | None,
 ) -> None:
-    """Check a URL through an explicit forward proxy."""
+    """Check a URL via proxy; sends a request and redacts the proxy URL."""
 
     from chatnet.forward_proxy_check import check_forward_proxy
 
@@ -478,7 +400,7 @@ def proxy_check(
 
 @proxy_group.group(name="autostart")
 def proxy_autostart() -> None:
-    """Generate or install non-sudo user autostart files."""
+    """Create non-sudo user systemd autostart artifacts."""
 
 
 _PROXY_SERVICE_OPTIONS = [
@@ -516,7 +438,7 @@ def _service_config(service_name: str, bind: str, port: int, allow_cidr: str, us
 @_apply_proxy_service_options
 @add_interactive_option
 def proxy_autostart_print(service_name: str | None, bind: str | None, port: int | None, allow_cidr: str | None, username: str | None, env_file: str | None, python_bin: str | None, interactive: bool | None) -> None:
-    """Print a user systemd unit without writing files."""
+    """Render a user systemd unit; read-only text output."""
 
     from chatnet.forward_proxy_service import render_systemd_user_unit
 
@@ -553,7 +475,7 @@ def proxy_autostart_install(
     enable: bool,
     interactive: bool | None,
 ) -> None:
-    """Install a user systemd unit without sudo."""
+    """Write a user systemd unit and optionally enable it."""
 
     from chatnet.forward_proxy_service import default_env_file_path, install_systemd_user_unit, render_env_file_example
 

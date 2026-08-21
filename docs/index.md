@@ -9,9 +9,12 @@ ECNU 这类应用层门户逻辑属于 `ChatECNU`；ChatNet 只保留应用无�
 ```bash
 chatnet --help
 chatnet --tree
+chatnet --tree-brief
 chatnet links --url https://example.com
 chatnet proxy autostart print --bind 0.0.0.0 --port 18080 --allow-cidr 172.23.0.0/16 --user chatnet
 ```
+
+完整树包含参数签名，简版树保留相同注册命令和用途说明。两者都由 ChatStyle 共享渲染器生成，不输出密码或 token 值。
 
 ## 文档入口
 

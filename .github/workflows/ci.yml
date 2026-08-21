@@ -10,6 +10,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - name: Configure Git Credentials
@@ -18,9 +21,25 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python-version }}
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev,docs]"
       - run: python -m pytest -q
+      - name: Verify installed CLI contract
+        run: |
+          chatnet --version
+          chatnet --tree
+          chatnet --tree-brief
       - run: python -m build
+      - run: python -m twine check dist/*
+      - name: Verify built wheel CLI contract
+        run: |
+          python -m venv "$RUNNER_TEMP/chatnet-wheel"
+          "$RUNNER_TEMP/chatnet-wheel/bin/python" -m pip install dist/*.whl
+          (
+            cd "$RUNNER_TEMP"
+            "$RUNNER_TEMP/chatnet-wheel/bin/chatnet" --version
+            "$RUNNER_TEMP/chatnet-wheel/bin/chatnet" --tree
+            "$RUNNER_TEMP/chatnet-wheel/bin/chatnet" --tree-brief
+          )
       - run: mkdocs build --strict

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.3 - 2026-08-22
+
+### Added
+
+- Add `chatnet --tree-brief` and registry-backed full/brief tree contract tests.
+- Add installed editable and built-wheel CLI readbacks to the Python 3.10-3.12 CI matrix.
+
+### Changed
+
+- Replace the package-local tree renderer with ChatStyle `add_tree_option()`.
+- Align runtime bounds to `chatstyle>=0.2.0,<0.3.0` and `chatenv>=0.2.10,<0.3.0`.
+- Document command side effects and secret-output boundaries in both registered tree views.
+- Guard tag publication so the tagged commit must belong to the `master` default branch.
+
 ## 0.2.2 - 2026-08-11
 
 ### Added
