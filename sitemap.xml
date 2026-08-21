@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatNet/</loc>
+        <lastmod>2026-08-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatNet/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatNet/en/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatNet/cli-tree/</loc>
+        <lastmod>2026-08-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatNet/cli-tree/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatNet/en/cli-tree/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatNet/en/</loc>
+        <lastmod>2026-08-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatNet/en/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatNet/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatNet/en/cli-tree/</loc>
+        <lastmod>2026-08-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatNet/en/cli-tree/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatNet/cli-tree/"/>
+    </url>
+</urlset>
