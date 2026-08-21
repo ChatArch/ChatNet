@@ -7,4 +7,4 @@ Current generic helpers include ping/port scanning, URL/link checking, browser-s
 
 ## CLI Tree
 
-Run `chatnet --tree` to print the registered command surface.
+Run `chatnet --tree` for the registered command surface with signatures or `chatnet --tree-brief` for the same nodes without signatures. Both views use ChatStyle's shared renderer and never include secret values.

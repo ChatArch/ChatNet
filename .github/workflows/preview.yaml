@@ -28,9 +28,19 @@ jobs:
       - run: |
           git fetch origin
           mike deploy dev -p --allow-empty
-          owner="${GITHUB_REPOSITORY_OWNER}"
-          repo="${GITHUB_REPOSITORY#*/}"
-          preview_url="https://${owner}.github.io/${repo}/dev/"
+          site_url=$(python - <<'PY'
+          from pathlib import Path
+
+          for line in Path("mkdocs.yml").read_text(encoding="utf-8").splitlines():
+              if line.startswith("site_url:"):
+                  print(line.split(":", 1)[1].strip().rstrip("/"))
+                  break
+          else:
+              raise SystemExit("mkdocs.yml is missing site_url")
+          PY
+          )
+          preview_url="${site_url}/dev/"
+          echo "CHATARCH_PREVIEW_URL=${preview_url}" >> "$GITHUB_ENV"
           echo "Preview URL: ${preview_url}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment PR with Preview Link
@@ -38,7 +48,7 @@ jobs:
         with:
           script: |
             const { payload, repo } = context;
-            const previewLink = `https://${repo.owner}.github.io/${repo.repo}/dev/`;
+            const previewLink = process.env.CHATARCH_PREVIEW_URL;
             const comments = await github.rest.issues.listComments({
               owner: repo.owner,
               repo: repo.repo,
