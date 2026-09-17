@@ -42,6 +42,12 @@ CHATNET_PROXY_USER='chatnet'
 CHATNET_PROXY_PASSWORD='<password>'
 ```
 
+## 离线网络恢复
+
+Linux + NetworkManager 可使用 `chatnet recovery check` 诊断、`chatnet recovery run --execute` 受控恢复。设备信息和阈值由 ChatEnv 管理，不放进日常命令参数。运行态遵循 `CHATARCH_HOME`，不依赖项目目录或联网下载。
+
+参见 [离线网络恢复](docs/recovery.md)，包括权限、冷却和持久化恢复预算。首版只提供一次性恢复，不启用后台监控。恢复是缓解措施，不等于修复硬件根因。
+
 ## Boundary
 
 ChatNet should stay application-neutral. ECNU login, visitor management, ECNU-specific ChatEnv schema, and ECNU CAPTCHA behavior belong in `ChatECNU`, not in ChatNet.

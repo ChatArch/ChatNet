@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add ENV-backed local recovery diagnosis and explicit one-shot recovery with persistent retry limits.
+- Add a hardware-free one-shot CLI using the installed package rather than project scripts; background monitoring remains deferred.
+- Protect management paths, avoid broad module reloads, preserve NetworkManager credentials and fail closed on unsafe state.
+
 ## 0.2.3 - 2026-08-22
 
 ### Added

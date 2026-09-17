@@ -18,6 +18,9 @@ chatnet
 │   │   └── print [--service-name SERVICE-NAME] [--bind BIND] [--port PORT] [--allow-cidr ALLOW-CIDR] [--user USERNAME] [--env-file ENV-FILE] [--python PYTHON-BIN] [--interactive]  # Render a user systemd unit; read-only text output.
 │   ├── check [--proxy-url PROXY-URL] [--url TARGET-URL] [--user USERNAME] [--password PASSWORD] [--expect-status EXPECT-STATUS] [--timeout TIMEOUT] [--show-body] [--interactive]  # Check a URL via proxy; sends a request and redacts the proxy URL.
 │   └── serve [--bind BIND] [--port PORT] [--allow-cidr ALLOW-CIDR] [--user USERNAME] [--password PASSWORD] [--timeout TIMEOUT] [--interactive]  # Serve a forward proxy; long-running listener with no secret output.
+├── recovery  # Diagnose and recover locally; settings come from ChatEnv.
+│   ├── check [--json-output]  # Check the configured link; never change network state.
+│   └── run [--execute] [--json-output]  # Plan a recovery, or execute it with safety and budget checks.
 ├── services [--chromium-url CHROMIUM-URL] [--chromium-token CHROMIUM-TOKEN] [--chromedriver-url CHROMEDRIVER-URL] [--playwright-url PLAYWRIGHT-URL] [--timeout TIMEOUT]  # Check browser services; sends requests and redacts Chromium tokens.
 └── ssh [--input INPUT-FILE] [--network NETWORK] [--port PORT] [--concurrency CONCURRENCY] [--output OUTPUT]  # Scan TCP ports; sends network traffic and may write --output.
 ```
@@ -38,6 +41,9 @@ chatnet
 │   │   └── print  # Render a user systemd unit; read-only text output.
 │   ├── check  # Check a URL via proxy; sends a request and redacts the proxy URL.
 │   └── serve  # Serve a forward proxy; long-running listener with no secret output.
+├── recovery  # Diagnose and recover locally; settings come from ChatEnv.
+│   ├── check  # Check the configured link; never change network state.
+│   └── run  # Plan a recovery, or execute it with safety and budget checks.
 ├── services  # Check browser services; sends requests and redacts Chromium tokens.
 └── ssh  # Scan TCP ports; sends network traffic and may write --output.
 ```
