@@ -35,7 +35,7 @@ def _emit(result: dict, json_output: bool) -> None:
         click.echo("原因：" + str(result["reason"]))
 
 
-def _invoke(method: str, **kwargs) -> dict:
+def _invoke(method: str, **kwargs):
     api = _core()
     try:
         return getattr(api, method)(**kwargs)
@@ -56,6 +56,38 @@ def recovery_check(json_output: bool):
     _emit(result, json_output)
     if not result.get("healthy"):
         raise click.exceptions.Exit(1)
+
+
+@recovery_cli.command(name="logs")
+@click.option(
+    "--limit",
+    type=click.IntRange(1, 1000),
+    default=100,
+    show_default=True,
+    help="Maximum retained events to print.",
+)
+@click.option("--status", help="Show events with this status only.")
+@click.option("--incident-id", help="Show events for one incident UUID only.")
+@click.option("--json-output", is_flag=True, help="Print validated event JSON.")
+def recovery_logs(
+    limit: int, status: str | None, incident_id: str | None, json_output: bool
+):
+    """Read retained private recovery events; never inspect hardware."""
+    events = _invoke(
+        "read_recovery_logs",
+        limit=limit,
+        status=status,
+        incident_id=incident_id,
+    )
+    if json_output:
+        click.echo(json.dumps(events, ensure_ascii=False, allow_nan=False))
+        return
+    if not events:
+        click.echo("没有匹配的恢复事件")
+        return
+    for event in events:
+        detail = event.get("reason") or event.get("stage") or event["event"]
+        click.echo(f"{event['timestamp']}  {event['status']:<16}  {detail}")
 
 
 @recovery_cli.command(name="run")

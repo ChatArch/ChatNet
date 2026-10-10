@@ -2,9 +2,23 @@
 
 ## Unreleased
 
-- Add ENV-backed local recovery diagnosis and explicit one-shot recovery with persistent retry limits.
-- Add a hardware-free one-shot CLI using the installed package rather than project scripts; background monitoring remains deferred.
-- Protect management paths, avoid broad module reloads, preserve NetworkManager credentials and fail closed on unsafe state.
+## 0.2.4 - 2026-10-10
+
+### 新增
+
+- 增加通过 ChatEnv 配置的本地诊断与显式单次恢复，保留冷却、滑动窗口预算及并发锁。
+- 增加持久事件：故障观察、阻止和错误、尝试、每阶段开始/结束、复测与恢复确认，关联 incident、attempt 和 run，提供有界分段保留。
+- 增加可调用的 `read_recovery_logs()` 与 `chatnet recovery logs`，支持有界查询、状态/incident 过滤和 JSON 输出。
+- 增加仅基于先前内核核验身份的缺失接口恢复；未知设备、空指纹、共享模块及不安全管理路径一律拒绝操作。
+- 将用户级恢复 oneshot/timer 基础设施随包发布，并在既有 CI 中验证独立 wheel 与真实公开 PyPI 安装。
+
+### 修正
+
+- 健康空操作、检查失败和阻止也记录真实结果；`check` 和预演仍不修改恢复状态。
+- 将选定保存连接与实际活动连接 UUID 分开，复测必须确认尝试目标已活动，且物理实例、指纹和 profile 身份一致，避免误报恢复。
+- `recovered_at` 只取成功复测的实际完成时间；被中断的阶段和尝试保留未完成记录，不倒推成功。
+- 修改网络前验证全部保留历史；拒绝损坏或不安全记录、非普通文件、数字溢出和过深 JSON，保留可识别的旧格式记录及原预算。
+- 保持恢复离线且单次执行，不重启主机或 NetworkManager，不读取/更改 Wi-Fi 凭据，不新增后台看门狗。
 
 ## 0.2.3 - 2026-08-22
 

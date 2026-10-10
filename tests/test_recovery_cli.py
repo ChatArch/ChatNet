@@ -8,8 +8,8 @@ from chatnet.cli import main
 def test_recovery_cli_tree_is_hardware_free():
     result = CliRunner().invoke(main, ["recovery", "--help"])
     assert result.exit_code == 0
-    assert set(main.commands["recovery"].commands) == {"check", "run"}
-    for command in ["check", "run"]:
+    assert set(main.commands["recovery"].commands) == {"check", "run", "logs"}
+    for command in ["check", "run", "logs"]:
         result = CliRunner().invoke(main, ["recovery", command, "--help"])
         assert result.exit_code == 0
         assert all(
@@ -39,6 +39,7 @@ def api(monkeypatch, **overrides):
             "status": "stopped",
             "cycles": int(kw["once"]),
         },
+        read_recovery_logs=lambda **kw: [],
         **overrides,
     )
     monkeypatch.setattr(module, "_core", lambda: value)
@@ -81,3 +82,45 @@ def test_hardware_cli_flag_is_rejected_before_core(monkeypatch):
     calls = api(monkeypatch)
     result = CliRunner().invoke(main, ["recovery", "run", "--interface", "wlan-test"])
     assert result.exit_code == 2 and not calls
+
+
+def test_logs_cli_is_thin_bounded_and_json_capable(monkeypatch):
+    api(monkeypatch)
+    module = importlib.import_module("chatnet.recovery_cli")
+    fake = module._core()
+    calls = []
+    incident_id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+
+    def read_logs(**kwargs):
+        calls.append(kwargs)
+        return [
+            {
+                "timestamp": "2026-10-10T01:02:03+00:00",
+                "status": "failed",
+                "event": "run-finished",
+                "reason": "postcheck-failed",
+            }
+        ]
+
+    fake.read_recovery_logs = read_logs
+    monkeypatch.setattr(module, "_core", lambda: fake)
+    result = CliRunner().invoke(
+        main,
+        [
+            "recovery",
+            "logs",
+            "--limit",
+            "2",
+            "--status",
+            "failed",
+            "--incident-id",
+            incident_id,
+            "--json-output",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)[0]["status"] == "failed"
+    assert calls == [{"limit": 2, "status": "failed", "incident_id": incident_id}]
+
+    result = CliRunner().invoke(main, ["recovery", "logs", "--limit", "0"])
+    assert result.exit_code == 2

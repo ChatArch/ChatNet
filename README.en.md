@@ -7,9 +7,9 @@ Current generic helpers include ping/port scanning, URL/link checking, browser-s
 
 ## Offline recovery
 
-On Linux with NetworkManager, use `chatnet recovery check` and `chatnet recovery run --execute`. Hardware settings and thresholds come from ChatEnv, not daily CLI arguments. Runtime state stays under `CHATARCH_HOME`; recovery needs no source checkout or downloads.
+On Linux with NetworkManager, use `chatnet recovery check`, `chatnet recovery run --execute --json-output`, and `chatnet recovery logs`. Native private events include timestamps, incident identity, and stage outcomes. Hardware settings and thresholds come from ChatEnv, not daily CLI arguments. Runtime state stays under `CHATARCH_HOME`; recovery needs no source checkout or downloads.
 
-See [offline recovery](docs/recovery.en.md) for permissions and persistent retry limits. The first version does not start a background watcher. Recovery is mitigation, not proof that the hardware fault is fixed.
+See [offline recovery](docs/recovery.en.md) for permissions, finite log retention, and persistent retry limits. Missing-interface fallback requires a previously cached kernel device/driver identity that is still verifiable, an unchanged connection, and an independent physical Ethernet rescue path; otherwise it stops. No background watcher is started. Recovery is mitigation, not proof that the hardware fault is fixed.
 
 ## CLI Tree
 

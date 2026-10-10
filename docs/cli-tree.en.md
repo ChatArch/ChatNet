@@ -20,6 +20,7 @@ chatnet
 │   └── serve [--bind BIND] [--port PORT] [--allow-cidr ALLOW-CIDR] [--user USERNAME] [--password PASSWORD] [--timeout TIMEOUT] [--interactive]  # Serve a forward proxy; long-running listener with no secret output.
 ├── recovery  # Diagnose and recover locally; settings come from ChatEnv.
 │   ├── check [--json-output]  # Check the configured link; never change network state.
+│   ├── logs [--limit LIMIT] [--status STATUS] [--incident-id INCIDENT-ID] [--json-output]  # Read retained private recovery events; never inspect hardware.
 │   └── run [--execute] [--json-output]  # Plan a recovery, or execute it with safety and budget checks.
 ├── services [--chromium-url CHROMIUM-URL] [--chromium-token CHROMIUM-TOKEN] [--chromedriver-url CHROMEDRIVER-URL] [--playwright-url PLAYWRIGHT-URL] [--timeout TIMEOUT]  # Check browser services; sends requests and redacts Chromium tokens.
 └── ssh [--input INPUT-FILE] [--network NETWORK] [--port PORT] [--concurrency CONCURRENCY] [--output OUTPUT]  # Scan TCP ports; sends network traffic and may write --output.
@@ -43,6 +44,7 @@ chatnet
 │   └── serve  # Serve a forward proxy; long-running listener with no secret output.
 ├── recovery  # Diagnose and recover locally; settings come from ChatEnv.
 │   ├── check  # Check the configured link; never change network state.
+│   ├── logs  # Read retained private recovery events; never inspect hardware.
 │   └── run  # Plan a recovery, or execute it with safety and budget checks.
 ├── services  # Check browser services; sends requests and redacts Chromium tokens.
 └── ssh  # Scan TCP ports; sends network traffic and may write --output.
@@ -51,7 +53,7 @@ chatnet
 ## Acceptance checklist
 
 - `chatnet --help` must expose `--tree` and `--tree-brief`.
-- `chatnet --tree` must list `ping`, `ssh`, `links`, `services`, and nested `proxy serve/check/autostart print/install`.
+- `chatnet --tree` must list `ping`, `ssh`, `links`, `services`, nested `proxy serve/check/autostart print/install`, and `recovery check/logs/run`.
 - `chatnet --tree-brief` must retain the same commands and purpose summaries while omitting signatures.
 - The output must not contain the migrated `ecnu` application commands or the scaffold `hello` command.
 - Passwords and tokens may appear only as option names; values must never enter tree output or runtime summaries.

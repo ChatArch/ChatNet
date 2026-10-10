@@ -44,9 +44,9 @@ CHATNET_PROXY_PASSWORD='<password>'
 
 ## 离线网络恢复
 
-Linux + NetworkManager 可使用 `chatnet recovery check` 诊断、`chatnet recovery run --execute` 受控恢复。设备信息和阈值由 ChatEnv 管理，不放进日常命令参数。运行态遵循 `CHATARCH_HOME`，不依赖项目目录或联网下载。
+Linux + NetworkManager 可使用 `chatnet recovery check` 诊断、`chatnet recovery run --execute --json-output` 受控恢复，并用 `chatnet recovery logs` 读取带时间、incident 和阶段结果的私有持久事件。设备信息和阈值由 ChatEnv 管理，不放进日常命令参数。运行态遵循 `CHATARCH_HOME`，不依赖项目目录或联网下载。
 
-参见 [离线网络恢复](docs/recovery.md)，包括权限、冷却和持久化恢复预算。首版只提供一次性恢复，不启用后台监控。恢复是缓解措施，不等于修复硬件根因。
+参见 [离线网络恢复](docs/recovery.md)，包括权限、冷却、有限日志保留和持久化恢复预算。接口消失回退只接受先前缓存且当前仍可核验的内核设备/驱动身份、未改变的连接以及独立物理有线救援路径；不满足任一条件便停止。只提供一次性恢复，不启用后台监控。恢复是缓解措施，不等于修复硬件根因。
 
 ## Boundary
 

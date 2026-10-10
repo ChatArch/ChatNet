@@ -3,6 +3,7 @@
 from dataclasses import replace
 import json
 import os
+import shutil
 import subprocess
 
 import pytest
@@ -33,6 +34,7 @@ class Network:
         self.bound_interface = "wlan0"
         self.fail = {}
         self.before_mutation = None
+        self.on_module_load = None
 
     def __call__(self, argv, **kwargs):
         argv = list(argv)
@@ -116,6 +118,8 @@ class Network:
             pass
         elif command == ["modprobe", "test_wifi"]:
             self.loaded = True
+            if self.on_module_load:
+                self.on_module_load()
         elif command == ["udevadm", "settle", "--timeout=10"]:
             assert not privileged
         else:
@@ -138,6 +142,9 @@ def lab(recovery, tmp_path):
     (driver / "module").symlink_to(module)
     (driver / device.name).symlink_to(device)
     (device / "driver").symlink_to(driver)
+    (device / "uevent").write_text(
+        "DRIVER=test_wifi\nMODALIAS=pci:test_wifi\nPCI_ID=1234:5678\n"
+    )
     for name, target in (("wlan0", device), ("eth0", ethernet)):
         interface = root / "class" / "net" / name
         interface.mkdir(parents=True)
@@ -166,7 +173,7 @@ def test_healthy_gateway_with_failed_external_probe_is_not_repaired(lab):
     result = api.recover_network(settings, execute=True, home=home, **deps)
     assert result["ok"] and not result["performed"]
     assert not net.mutations
-    assert not home.exists()
+    assert api.read_recovery_logs(home=home)[-1]["status"] == "healthy"
 
 
 def test_dry_run_never_creates_state_or_runs_privileged(lab):
@@ -195,7 +202,8 @@ def test_nm_special_states_are_not_repaired(lab, state, status):
     assert not api.recover_network(settings, execute=True, home=home, **deps)[
         "performed"
     ]
-    assert not net.mutations and not home.exists()
+    assert not net.mutations
+    assert api.read_recovery_logs(home=home)[-1]["status"] == status
 
 
 def test_disabled_radio_not_repaired(lab):
@@ -264,7 +272,8 @@ def test_current_ssh_on_target_refuses_all_mutations(lab):
     net.ssh_dev = "wlan0"
     result = api.recover_network(settings, execute=True, home=home, **deps)
     assert result["status"] == "blocked" and result["reason"] == "ssh-target"
-    assert not net.mutations and not home.exists()
+    assert not net.mutations
+    assert api.read_recovery_logs(home=home)[-1]["status"] == "blocked"
 
 
 def test_reload_requires_explicit_authorization(lab):
@@ -482,4 +491,107 @@ def test_mutation_lock_conflict_does_not_run_commands(lab):
             api.recover_network(
                 settings, execute=True, home=home, clock=lambda: 1000, **deps
             )
+    assert not net.mutations
+
+
+def _remove_wireless_interface(deps):
+    shutil.rmtree(deps["sys_root"] / "class" / "net" / "wlan0")
+
+
+def _restore_wireless_interface(deps):
+    root = deps["sys_root"]
+    interface = root / "class" / "net" / "wlan0"
+    interface.mkdir(parents=True)
+    (interface / "device").symlink_to(root / "devices" / "pci0000:00" / "0000:01:00.0")
+    (interface / "type").write_text("1\n")
+    (interface / "carrier").write_text("1\n")
+    (interface / "wireless").mkdir()
+
+
+def test_missing_interface_recovers_only_from_verified_cached_identity(lab):
+    api, net, settings, deps, home = lab
+    settings = replace(settings, allow_module_reload=True)
+    net.gateway_ok = True
+    observed = api.recover_network(
+        settings, execute=True, home=home, clock=lambda: 1000, **deps
+    )
+    assert observed["status"] == "healthy" and not observed["performed"]
+
+    _remove_wireless_interface(deps)
+    net.gateway_ok = False
+    net.on_module_load = lambda: _restore_wireless_interface(deps)
+    result = api.recover_network(
+        settings, execute=True, home=home, clock=lambda: 1100, **deps
+    )
+
+    assert result["status"] == "recovered" and result["performed"]
+    assert [command[0] for command in net.mutations] == [
+        "modprobe",
+        "modprobe",
+        "nmcli",
+    ]
+    assert net.mutations[0:2] == [
+        ["modprobe", "-r", "test_wifi"],
+        ["modprobe", "test_wifi"],
+    ]
+
+
+@pytest.mark.parametrize(
+    "unsafe,reason",
+    [
+        ("removed", "cached-device-missing"),
+        ("replaced", "cached-device-changed"),
+        ("shared", "shared-module"),
+        ("profile", "profile-changed"),
+        ("route", "rescue-unsafe"),
+    ],
+)
+def test_missing_interface_cached_recovery_fails_closed(lab, unsafe, reason):
+    api, net, settings, deps, home = lab
+    settings = replace(settings, allow_module_reload=True)
+    net.gateway_ok = True
+    api.recover_network(settings, execute=True, home=home, clock=lambda: 1000, **deps)
+    _remove_wireless_interface(deps)
+    root = deps["sys_root"]
+    device = root / "devices" / "pci0000:00" / "0000:01:00.0"
+    driver = root / "bus" / "pci" / "drivers" / "test_wifi"
+
+    if unsafe == "removed":
+        shutil.rmtree(device)
+    elif unsafe == "replaced":
+        shutil.rmtree(device)
+        device.mkdir()
+        (device / "driver").symlink_to(driver)
+        (device / "uevent").write_text(
+            "DRIVER=test_wifi\nMODALIAS=pci:replacement\nPCI_ID=9999:0001\n"
+        )
+    elif unsafe == "shared":
+        other = root / "devices" / "pci0000:00" / "0000:03:00.0"
+        other.mkdir()
+        (other / "driver").symlink_to(driver)
+        (driver / other.name).symlink_to(other)
+    elif unsafe == "profile":
+        net.profiles = [(UUID, "wifi", "replacement")]
+    else:
+        net.rescue_dev = "lo"
+
+    result = api.recover_network(
+        settings, execute=True, home=home, clock=lambda: 1100, **deps
+    )
+    assert result["status"] == "blocked" and result["reason"] == reason
+    assert not net.mutations
+
+
+def test_missing_interface_without_cached_identity_never_mutates(lab):
+    api, net, settings, deps, home = lab
+    _remove_wireless_interface(deps)
+    result = api.recover_network(
+        replace(settings, allow_module_reload=True),
+        execute=True,
+        home=home,
+        clock=lambda: 1000,
+        **deps,
+    )
+    assert result["status"] == "blocked"
+    assert result["reason"] == "identity-unavailable"
     assert not net.mutations
