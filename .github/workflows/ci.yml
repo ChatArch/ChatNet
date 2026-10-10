@@ -42,4 +42,18 @@ jobs:
             "$RUNNER_TEMP/chatnet-wheel/bin/chatnet" --tree
             "$RUNNER_TEMP/chatnet-wheel/bin/chatnet" --tree-brief
           )
+      - name: Verify built wheel recovery assets
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/chatnet-wheel/bin/python" - <<'PY'
+          from importlib.resources import files
+          from pathlib import Path
+          import chatnet
+
+          assert 'site-packages' in str(Path(chatnet.__file__).resolve())
+          root = files('chatnet').joinpath('data/systemd')
+          for name in ('chatnet-recovery.service', 'chatnet-recovery.timer'):
+              assert root.joinpath(name).is_file(), name
+          print('Installed wheel recovery assets verified')
+          PY
       - run: mkdocs build --strict

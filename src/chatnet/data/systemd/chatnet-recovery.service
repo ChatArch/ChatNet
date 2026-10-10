@@ -1,0 +1,22 @@
+[Unit]
+Description=ChatNet guarded local network self-check and recovery
+StartLimitIntervalSec=300
+StartLimitBurst=30
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.chatarch
+Environment=CHATARCH_HOME=%h/.chatarch
+UnsetEnvironment=PYTHONPATH PYTHONHOME LD_PRELOAD LD_LIBRARY_PATH SSH_CONNECTION
+ExecStart=%h/.chatarch/venv/bin/python -I -u -m chatnet.cli recovery run --execute --json-output
+TimeoutStartSec=300
+TimeoutStopSec=90
+Restart=no
+UMask=0077
+Nice=10
+CPUQuota=10%
+MemoryMax=128M
+TasksMax=32
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=chatnet-recovery

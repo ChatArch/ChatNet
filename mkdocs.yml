@@ -32,13 +32,18 @@ plugins:
             首页: Home
             命令与接口: Commands and Interfaces
             CLI 树: CLI Tree
+            离线网络恢复: Offline Recovery
 markdown_extensions:
   - admonition
   - attr_list
   - md_in_html
   - pymdownx.details
   - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 nav:
   - 首页: index.md
   - 命令与接口:
       - CLI 树: cli-tree.md
+      - 离线网络恢复: recovery.md

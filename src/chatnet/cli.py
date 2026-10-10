@@ -509,5 +509,10 @@ def proxy_autostart_install(
         click.echo("Enable with: systemctl --user daemon-reload && systemctl --user enable --now " + unit_path.name)
 
 
+from chatnet.recovery_cli import recovery_cli
+
+main.add_command(recovery_cli)
+
+
 if __name__ == "__main__":
     main()
