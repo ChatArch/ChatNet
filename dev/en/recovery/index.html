@@ -384,6 +384,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Commands
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#chatenv-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       ChatEnv configuration
@@ -396,6 +405,15 @@
   <a href="#guarded-recovery" class="md-nav__link">
     <span class="md-ellipsis">
       Guarded recovery
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#durable-events-and-retention" class="md-nav__link">
+    <span class="md-ellipsis">
+      Durable events and retention
     </span>
   </a>
   
@@ -444,6 +462,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Commands
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#chatenv-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       ChatEnv configuration
@@ -456,6 +483,15 @@
   <a href="#guarded-recovery" class="md-nav__link">
     <span class="md-ellipsis">
       Guarded recovery
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#durable-events-and-retention" class="md-nav__link">
+    <span class="md-ellipsis">
+      Durable events and retention
     </span>
   </a>
   
@@ -481,13 +517,17 @@
 
 
 <h1 id="offline-network-recovery">Offline network recovery</h1>
-<p>The first version provides one-shot diagnosis and guarded recovery on Linux with NetworkManager. Restore the real connection first, record the working procedure, then improve the CLI from observed incidents. It does not start a watchdog or claim to handle every driver failure.</p>
+<p>ChatNet provides one-shot diagnosis and guarded recovery on Linux with NetworkManager. It does not start a watchdog or claim to repair the hardware fault.</p>
+<h2 id="commands">Commands</h2>
 <div class="highlight"><pre><span></span><code>chatnet<span class="w"> </span>recovery<span class="w"> </span>check
-chatnet<span class="w"> </span>recovery<span class="w"> </span>run<span class="w">                 </span><span class="c1"># read-only plan</span>
-chatnet<span class="w"> </span>recovery<span class="w"> </span>run<span class="w"> </span>--execute<span class="w">       </span><span class="c1"># explicitly execute one attempt</span>
 chatnet<span class="w"> </span>recovery<span class="w"> </span>check<span class="w"> </span>--json-output
+chatnet<span class="w"> </span>recovery<span class="w"> </span>run<span class="w">                         </span><span class="c1"># read-only plan</span>
+chatnet<span class="w"> </span>recovery<span class="w"> </span>run<span class="w"> </span>--execute<span class="w"> </span>--json-output<span class="w"> </span><span class="c1"># one guarded attempt</span>
+chatnet<span class="w"> </span>recovery<span class="w"> </span>logs<span class="w"> </span>--limit<span class="w"> </span><span class="m">100</span>
+chatnet<span class="w"> </span>recovery<span class="w"> </span>logs<span class="w"> </span>--status<span class="w"> </span>failed<span class="w"> </span>--json-output
+chatnet<span class="w"> </span>recovery<span class="w"> </span>logs<span class="w"> </span>--incident-id<span class="w"> </span>&lt;uuid&gt;
 </code></pre></div>
-<p>An unhealthy check or failed recovery exits nonzero. A healthy link is not reset. Failure of an optional external probe does not trigger a repair when the local gateway remains reachable.</p>
+<p>An unhealthy check or failed recovery exits nonzero. <code>check</code> inspects the network but never reads or writes recovery state. A dry run also creates no state. Every <code>run --execute</code> invocation records a native result, including healthy no-ops, blocked attempts, and inspection errors. A healthy link is never reset, and a failed optional external probe does not trigger repair while the local gateway remains reachable.</p>
 <h2 id="chatenv-configuration">ChatEnv configuration</h2>
 <p>Use the existing <code>ChatNet</code> provider. Process environment overrides the active profile; hardware options do not belong in daily CLI arguments.</p>
 <div class="highlight"><pre><span></span><code>CHATNET_RECOVERY_INTERFACE=
@@ -499,13 +539,18 @@ CHATNET_RECOVERY_COOLDOWN=300
 CHATNET_RECOVERY_MAX_ATTEMPTS=3
 CHATNET_RECOVERY_WINDOW=3600
 </code></pre></div>
-<p>Replace the example connection/peer with verified local values. An empty interface requires exactly one wireless interface. An empty connection requires an unambiguous saved Wi-Fi profile. Module reload defaults to false; the module is derived from the kernel and cannot be overridden. The rescue peer must route through an independent physical Ethernet interface with carrier.</p>
-<p>Do not provide Wi-Fi passwords: existing NetworkManager authentication is reused unchanged. Manage the profile through ChatEnv, then run <code>chatenv test -t chatnet -I</code> for configuration validation without network mutations.</p>
+<p>Replace the example connection and peer with verified local values. An empty interface requires exactly one wireless interface. An empty connection requires an unambiguous saved Wi-Fi profile. Module reload defaults to false; the module is derived from kernel evidence and cannot be supplied as a CLI option. The rescue peer must route through an independent physical Ethernet interface with carrier.</p>
+<p>Do not provide Wi-Fi passwords. Recovery reuses an existing NetworkManager profile without reading or changing its authentication. Manage the profile through ChatEnv, then use <code>chatenv test -t chatnet -I</code> for configuration validation without network mutation.</p>
 <h2 id="guarded-recovery">Guarded recovery</h2>
-<p>The command protects the foreground SSH path. With module mode disabled it only attempts bounded scanning/reconnection. Explicit module mode requires a physical wired rescue path and a driver bound to exactly one device, then directly follows the proven sequence: module unload, module load, device settlement, and activation of the saved connection. A failed scan is not a prerequisite for that path. A fresh gateway check determines success.</p>
-<p>Existing noninteractive sudo permissions are required for execution. The package does not install sudoers, restart NetworkManager/the host, replace firmware, or download dependencies during recovery. Recovery is mitigation, not proof of a permanent hardware fix.</p>
-<p>Profiles remain in <code>$CHATARCH_HOME/envs/ChatNet/</code>; locks, budgets and metadata-only logs use <code>$CHATARCH_HOME/chatnet/recovery/</code>. The default home is <code>~/.chatarch</code>. Budgets are persisted before mutation: five-minute cooldown and at most three attempts per hour by default. Corrupt state or a regressed clock fails closed. Raw command stderr is not published.</p>
-<p>The installed package does not depend on a source checkout. Background watch/service commands are outside this first version. Python callers can use <code>chatnet.recovery.check_recovery()</code>, <code>recover_network(execute=False)</code> and <code>recovery_home()</code>.</p>
+<p>The command protects the foreground SSH path and persists the cooldown/hourly budget before its first mutation. Without module mode, it runs a bounded Wi-Fi rescan, activates the selected saved connection, and postchecks the gateway. Module mode also requires independent wired rescue, complete nonempty physical identity, and a driver bound to that adapter alone. Each command and postcheck persists <code>stage-started</code> before execution and <code>stage-finished</code> afterward with sanitized return codes; unmatched starts mean completion was not confirmed. <code>status=recovered</code> requires the actual active connection UUID to match the attempted target, matching physical instance/fingerprint and saved-profile identity, and a successful gateway postcheck. <code>recovered_at</code> is that postcheck's actual completion time. <code>connection_uuid</code> describes the selected saved profile; <code>active_connection_uuid</code> describes the observed active profile, never a substitution from configuration.</p>
+<p>An execute observation made while the interface is present may cache a private recovery identity: interface, a saved-profile fingerprint (UUID, type, name, and binding), kernel device path and instance, kernel identity fingerprint, and derived module. If that interface later disappears, module-mode recovery is considered only when all of that evidence still matches. The kernel device must still exist, no replacement may occupy it, the module may control no other device, the saved profile selection must be unchanged, and the Ethernet/SSH safety checks must still pass. Missing or legacy identity, removed or replaced hardware, a changed profile, a shared module, or an unsafe management route blocks mutation. ChatNet never derives a driver from an interface name, accepts module options, or guesses a device.</p>
+<p>This fallback is deliberately narrow. It cannot recover hardware that has vanished from sysfs, a device whose kernel instance changed, or an interface that does not return after the verified module reload. Live USB/driver behavior remains hardware-specific and must be validated by an operator.</p>
+<p>Existing noninteractive sudo permissions are required for execution. The package does not install sudoers, silently escalate privileges, restart NetworkManager or the host, replace firmware/drivers, download dependencies, or execute caller-supplied commands.</p>
+<h2 id="durable-events-and-retention">Durable events and retention</h2>
+<p>Profiles remain in <code>$CHATARCH_HOME/envs/ChatNet/</code>; locks, budgets, cached identity, and events use <code>$CHATARCH_HOME/chatnet/recovery/</code>. The default home is <code>~/.chatarch</code>. Directories and files are owner-only. Corrupt state, unsafe permissions, malformed event JSON, or a regressed clock fails closed; raw subprocess stderr is never stored or returned.</p>
+<p>Events contain an epoch and timezone-qualified timestamp, <code>run_id</code>, a persistent <code>incident_id</code> for unhealthy observations, and <code>attempt_id</code> for actual attempts. They also carry the sanitized diagnosis, planned actions, stage outcomes, and terminal result. <code>detected_at</code> is the first observed unhealthy time, not an estimated physical disconnect time. Failures and blocks remain in the same open incident until a healthy observation; a later relapse starts another incident. Healthy no-ops always have <code>performed=false</code>. An interrupted attempt retains its durable <code>attempt-started</code> event (and active state) without an <code>attempt-finished</code> success; later health never rewrites that attempt as successful.</p>
+<p>Retention is finite: eight JSONL segments with a 1 MiB rotation target (roughly 8 MiB plus at most one bounded event). <code>recovery logs</code> reads all retained segments safely, returns the newest 100 events by default, and accepts limits from 1 through 1000. Status and incident filters apply within retained data; they cannot recover rotated-out history. Recognized pre-0.2.4 metadata-only lines remain on disk through normal rotation but are omitted from versioned API results because they have no trustworthy run or incident identity. Python callers can use <code>check_recovery()</code>, <code>recover_network(execute=False)</code>, <code>read_recovery_logs()</code>, and <code>recovery_home()</code> from <code>chatnet.recovery</code>.</p>
+<p>The installed package does not depend on a source checkout. Background watch/service commands remain outside this command surface.</p>
 
 
 

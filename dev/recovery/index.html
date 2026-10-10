@@ -393,9 +393,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#env" class="md-nav__link">
+  <a href="#chatenv" class="md-nav__link">
     <span class="md-ellipsis">
-      一次性 ENV 配置
+      ChatEnv 配置
     </span>
   </a>
   
@@ -413,7 +413,7 @@
         <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
-      状态与安装边界
+      持久事件和保留边界
     </span>
   </a>
   
@@ -471,9 +471,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#env" class="md-nav__link">
+  <a href="#chatenv" class="md-nav__link">
     <span class="md-ellipsis">
-      一次性 ENV 配置
+      ChatEnv 配置
     </span>
   </a>
   
@@ -491,7 +491,7 @@
         <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
-      状态与安装边界
+      持久事件和保留边界
     </span>
   </a>
   
@@ -517,16 +517,19 @@
 
 
 <h1 id="_1">离线网络恢复</h1>
-<p>首版聚焦 Linux + NetworkManager 的一次性诊断与受控恢复。先恢复真实网络、记录可工作的脚本，再按实际复发迭代；不要求首版覆盖所有驱动或故障，也不启动后台监控。</p>
+<p>ChatNet 为 Linux + NetworkManager 提供一次性诊断和受保护的恢复；它不会启动后台看门狗，也不宣称修复硬件根因。</p>
 <h2 id="_2">日常命令</h2>
 <div class="highlight"><pre><span></span><code>chatnet<span class="w"> </span>recovery<span class="w"> </span>check
-chatnet<span class="w"> </span>recovery<span class="w"> </span>run<span class="w">                 </span><span class="c1"># 预演，不改变网络</span>
-chatnet<span class="w"> </span>recovery<span class="w"> </span>run<span class="w"> </span>--execute<span class="w">       </span><span class="c1"># 显式执行一次</span>
 chatnet<span class="w"> </span>recovery<span class="w"> </span>check<span class="w"> </span>--json-output
+chatnet<span class="w"> </span>recovery<span class="w"> </span>run<span class="w">                         </span><span class="c1"># 只读预演</span>
+chatnet<span class="w"> </span>recovery<span class="w"> </span>run<span class="w"> </span>--execute<span class="w"> </span>--json-output<span class="w"> </span><span class="c1"># 执行一次受保护恢复</span>
+chatnet<span class="w"> </span>recovery<span class="w"> </span>logs<span class="w"> </span>--limit<span class="w"> </span><span class="m">100</span>
+chatnet<span class="w"> </span>recovery<span class="w"> </span>logs<span class="w"> </span>--status<span class="w"> </span>failed<span class="w"> </span>--json-output
+chatnet<span class="w"> </span>recovery<span class="w"> </span>logs<span class="w"> </span>--incident-id<span class="w"> </span>&lt;uuid&gt;
 </code></pre></div>
-<p>诊断不健康或执行失败时返回非零。链路已健康时，<code>run --execute</code> 不重载驱动。公网探测单点失败但本地网关仍可达，不触发无线恢复。</p>
-<h2 id="env">一次性 ENV 配置</h2>
-<p>配置归属既有 ChatEnv <code>ChatNet</code> schema；读取顺序为进程环境优先于活动 profile。日常 CLI 不要求网卡、驱动或机器参数。</p>
+<p>诊断不健康或执行失败时返回非零。<code>check</code> 会读取网络状态，但不读取或写入恢复状态；预演也不创建状态。每次 <code>run --execute</code> 都写入原生结果，包括健康空操作、安全阻止和检查错误。链路健康时不重置网络；本地网关仍可达时，公网探测单点失败不会触发恢复。</p>
+<h2 id="chatenv">ChatEnv 配置</h2>
+<p>配置归属既有 ChatEnv <code>ChatNet</code> schema；进程环境优先于活动 profile。日常 CLI 不接收网卡、驱动或机器参数。</p>
 <div class="highlight"><pre><span></span><code>CHATNET_RECOVERY_INTERFACE=
 CHATNET_RECOVERY_CONNECTION=saved-wifi
 CHATNET_RECOVERY_RESCUE_PEER=192.0.2.1
@@ -536,22 +539,21 @@ CHATNET_RECOVERY_COOLDOWN=300
 CHATNET_RECOVERY_MAX_ATTEMPTS=3
 CHATNET_RECOVERY_WINDOW=3600
 </code></pre></div>
-<p>以上为示例，不是可直接用于当前网络的地址。<code>INTERFACE</code> 留空时要求仅存在一个无线接口；<code>CONNECTION</code> 是已保存连接的名称或 UUID，留空时要求可唯一选择。多个保存连接应显式选定，工具不会猜测。<code>RESCUE_PEER</code> 应是实际可经独立物理有线接口到达的管理对端。<code>MODULE_RELOAD</code> 默认为 false；模块名始终由内核推导，没有任意模块覆盖参数。</p>
-<p>不要填写 Wi-Fi 密码：只激活 NetworkManager 已保存的连接，不读取、复制或更改认证资料。使用现有 ChatEnv 工具管理 profile，然后运行 <code>chatenv test -t chatnet -I</code> 验证配置；该验证不修改网络。</p>
+<p>以上连接和地址仅为示例，应替换为已核验的本地值。<code>INTERFACE</code> 留空时必须只有一个无线接口；<code>CONNECTION</code> 留空时必须能唯一选择已保存的 Wi-Fi profile。模块重载默认关闭；模块名只从内核证据推导，不能通过 CLI 指定。救援对端必须经带 carrier 的独立物理以太网接口到达。</p>
+<p>不要提供 Wi-Fi 密码。恢复只复用 NetworkManager 的既有 profile，不读取或修改认证信息。通过 ChatEnv 管理 profile，再用 <code>chatenv test -t chatnet -I</code> 做不修改网络的配置校验。</p>
 <h2 id="_3">恢复路径和保护</h2>
-<ol>
-<li>诊断目标及当前 SSH 路径；当前 SSH 经目标无线接口时拒绝恢复。</li>
-<li>未开启模块模式时，仅对原保存连接做有界扫描和重连。</li>
-<li>开启模块模式时，要求有独立物理有线救援路径且驱动只绑定一个设备，直接执行已实践过的模块卸载、加载、等待设备就绪、原连接激活路径；不让已知失效的扫描步骤阻挡该路径。</li>
-<li>重新检测网关，不把命令返回 0 当作恢复成功。</li>
-</ol>
-<p>执行使用既有非交互 sudo 权限；工具不安装 sudoers、不重启 NetworkManager/主机，不下载驱动或固件。实际模块/权限或连接失败需保留证据，不能宣称已根治硬件问题。</p>
-<h2 id="_4">状态与安装边界</h2>
+<p>命令保护当前 SSH 路径，并在首次修改网络前持久化冷却和每小时预算。未启用模块模式时，只执行有界 Wi-Fi 扫描、激活选定连接并复查网关。模块模式还要求独立有线救援路径、完整非空的物理身份和仅绑定该适配器的驱动，再依次执行模块卸载、模块加载、设备等待、既有连接激活和复查。每个命令与复查都在开始前持久化 <code>stage-started</code>，完成后写入 <code>stage-finished</code> 及净化后的返回码；未匹配的开始记录明确表示该阶段未确认完成。只有实际活动连接 UUID 等于尝试目标，设备实例、指纹和 profile 身份一致，且网关复查成功，才返回 <code>status=recovered</code>；<code>recovered_at</code> 是复查实际完成时间。诊断中的 <code>connection_uuid</code> 是选定的保存连接，<code>active_connection_uuid</code> 是现场活动连接，不用配置值替代现场事实。</p>
+<p>接口存在时的一次 execute 观察可以缓存私有恢复身份：接口、已保存 profile 的指纹（UUID、类型、名称和绑定）、内核设备路径和实例、内核身份指纹以及推导出的模块。接口随后消失时，只有全部证据仍一致才会考虑模块模式恢复：内核设备仍存在、没有替换设备占位、模块未控制其他设备、profile 选择未改变，并且有线救援及 SSH 检查仍安全。缺少身份或旧状态没有身份、硬件移除或更换、profile 改变、模块共享、管理路由不安全时一律拒绝修改。ChatNet 不从接口名猜驱动、不接受模块选项，也不猜设备。</p>
+<p>这个回退路径有意保持狭窄：sysfs 中已消失的硬件、内核设备实例已改变的硬件，或核验模块重载后接口仍未返回的情况都不能恢复。真实 USB/驱动行为依赖硬件，仍需操作员现场验证。</p>
+<p>执行要求既有非交互 sudo 权限。工具不安装 sudoers、不静默提权、不重启 NetworkManager 或主机、不替换固件/驱动、不联网下载，也不执行调用方提供的任意命令。</p>
+<h2 id="_4">持久事件和保留边界</h2>
 <div class="highlight"><pre><span></span><code>$CHATARCH_HOME/envs/ChatNet/       # 既有 ChatEnv profile
-$CHATARCH_HOME/chatnet/recovery/  # 锁、预算、执行记录
+$CHATARCH_HOME/chatnet/recovery/  # 锁、预算、缓存身份和事件
 </code></pre></div>
-<p>未设置 <code>CHATARCH_HOME</code> 时使用 <code>~/.chatarch</code>。执行前持久化恢复预算，默认五分钟冷却、一小时最多三次；状态损坏或时钟回退时停止，不清零预算。日志只保留阶段和结果，不公开原始命令 stderr。安装依赖齐备后，无需源码 checkout 或断网时联网安装。</p>
-<p>后台 watch/service 不属于本次首版命令面。Python 调用方可使用 <code>chatnet.recovery.check_recovery()</code>、<code>recover_network(execute=False)</code> 和 <code>recovery_home()</code>。</p>
+<p>未设置 <code>CHATARCH_HOME</code> 时使用 <code>~/.chatarch</code>。目录和文件仅所有者可访问。状态损坏、权限不安全、事件 JSON 形状错误或时钟回退都会停止执行；原始子进程 stderr 永不写入或返回。</p>
+<p>事件包含 epoch、带时区时间、<code>run_id</code>、不健康期间持久的 <code>incident_id</code>，以及实际尝试的 <code>attempt_id</code>，并记录净化后的诊断、动作、阶段结果和终态。<code>detected_at</code> 是首次观察到不健康的时间，不是猜测的物理断线时间。失败和阻止保持在同一开放 incident，直到观察到健康；之后再次复发会创建新 incident。健康空操作始终为 <code>performed=false</code>。被中断的尝试保留已落盘的 <code>attempt-started</code>（及活动状态），但没有成功的 <code>attempt-finished</code>；后续健康也不会倒推该尝试成功。</p>
+<p>保留量有限：8 个 JSONL 分段，每段以 1 MiB 为轮转目标（约 8 MiB，另加至多一个有界事件）。<code>recovery logs</code> 安全读取全部仍保留的分段，默认返回最新 100 条，<code>--limit</code> 范围为 1 到 1000。状态和 incident 过滤只作用于保留范围，不能找回已轮转删除的历史。升级时会严格识别并继续保留 0.2.4 之前的元数据行，但它们没有可信的 run/incident 身份，因此不进入新版 API 结果。Python 调用方可使用 <code>chatnet.recovery</code> 中的 <code>check_recovery()</code>、<code>recover_network(execute=False)</code>、<code>read_recovery_logs()</code> 和 <code>recovery_home()</code>。</p>
+<p>已安装包不依赖源码 checkout。后台 watch/service 不属于本命令面。</p>
 
 
 

@@ -518,6 +518,7 @@
 │   └── serve [--bind BIND] [--port PORT] [--allow-cidr ALLOW-CIDR] [--user USERNAME] [--password PASSWORD] [--timeout TIMEOUT] [--interactive]  # Serve a forward proxy; long-running listener with no secret output.
 ├── recovery  # Diagnose and recover locally; settings come from ChatEnv.
 │   ├── check [--json-output]  # Check the configured link; never change network state.
+│   ├── logs [--limit LIMIT] [--status STATUS] [--incident-id INCIDENT-ID] [--json-output]  # Read retained private recovery events; never inspect hardware.
 │   └── run [--execute] [--json-output]  # Plan a recovery, or execute it with safety and budget checks.
 ├── services [--chromium-url CHROMIUM-URL] [--chromium-token CHROMIUM-TOKEN] [--chromedriver-url CHROMEDRIVER-URL] [--playwright-url PLAYWRIGHT-URL] [--timeout TIMEOUT]  # Check browser services; sends requests and redacts Chromium tokens.
 └── ssh [--input INPUT-FILE] [--network NETWORK] [--port PORT] [--concurrency CONCURRENCY] [--output OUTPUT]  # Scan TCP ports; sends network traffic and may write --output.
@@ -538,6 +539,7 @@
 │   └── serve  # Serve a forward proxy; long-running listener with no secret output.
 ├── recovery  # Diagnose and recover locally; settings come from ChatEnv.
 │   ├── check  # Check the configured link; never change network state.
+│   ├── logs  # Read retained private recovery events; never inspect hardware.
 │   └── run  # Plan a recovery, or execute it with safety and budget checks.
 ├── services  # Check browser services; sends requests and redacts Chromium tokens.
 └── ssh  # Scan TCP ports; sends network traffic and may write --output.
@@ -545,7 +547,7 @@
 <h2 id="acceptance-checklist">Acceptance checklist</h2>
 <ul>
 <li><code>chatnet --help</code> must expose <code>--tree</code> and <code>--tree-brief</code>.</li>
-<li><code>chatnet --tree</code> must list <code>ping</code>, <code>ssh</code>, <code>links</code>, <code>services</code>, and nested <code>proxy serve/check/autostart print/install</code>.</li>
+<li><code>chatnet --tree</code> must list <code>ping</code>, <code>ssh</code>, <code>links</code>, <code>services</code>, nested <code>proxy serve/check/autostart print/install</code>, and <code>recovery check/logs/run</code>.</li>
 <li><code>chatnet --tree-brief</code> must retain the same commands and purpose summaries while omitting signatures.</li>
 <li>The output must not contain the migrated <code>ecnu</code> application commands or the scaffold <code>hello</code> command.</li>
 <li>Passwords and tokens may appear only as option names; values must never enter tree output or runtime summaries.</li>

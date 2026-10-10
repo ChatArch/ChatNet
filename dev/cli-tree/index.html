@@ -518,6 +518,7 @@
 │   └── serve [--bind BIND] [--port PORT] [--allow-cidr ALLOW-CIDR] [--user USERNAME] [--password PASSWORD] [--timeout TIMEOUT] [--interactive]  # Serve a forward proxy; long-running listener with no secret output.
 ├── recovery  # Diagnose and recover locally; settings come from ChatEnv.
 │   ├── check [--json-output]  # Check the configured link; never change network state.
+│   ├── logs [--limit LIMIT] [--status STATUS] [--incident-id INCIDENT-ID] [--json-output]  # Read retained private recovery events; never inspect hardware.
 │   └── run [--execute] [--json-output]  # Plan a recovery, or execute it with safety and budget checks.
 ├── services [--chromium-url CHROMIUM-URL] [--chromium-token CHROMIUM-TOKEN] [--chromedriver-url CHROMEDRIVER-URL] [--playwright-url PLAYWRIGHT-URL] [--timeout TIMEOUT]  # Check browser services; sends requests and redacts Chromium tokens.
 └── ssh [--input INPUT-FILE] [--network NETWORK] [--port PORT] [--concurrency CONCURRENCY] [--output OUTPUT]  # Scan TCP ports; sends network traffic and may write --output.
@@ -538,6 +539,7 @@
 │   └── serve  # Serve a forward proxy; long-running listener with no secret output.
 ├── recovery  # Diagnose and recover locally; settings come from ChatEnv.
 │   ├── check  # Check the configured link; never change network state.
+│   ├── logs  # Read retained private recovery events; never inspect hardware.
 │   └── run  # Plan a recovery, or execute it with safety and budget checks.
 ├── services  # Check browser services; sends requests and redacts Chromium tokens.
 └── ssh  # Scan TCP ports; sends network traffic and may write --output.
@@ -545,7 +547,7 @@
 <h2 id="_3">验收条目</h2>
 <ul>
 <li><code>chatnet --help</code> 必须显示 <code>--tree</code> 和 <code>--tree-brief</code>。</li>
-<li><code>chatnet --tree</code> 必须列出 <code>ping</code>、<code>ssh</code>、<code>links</code>、<code>services</code>、<code>proxy serve/check/autostart print/install</code>。</li>
+<li><code>chatnet --tree</code> 必须列出 <code>ping</code>、<code>ssh</code>、<code>links</code>、<code>services</code>、<code>proxy serve/check/autostart print/install</code> 和 <code>recovery check/logs/run</code>。</li>
 <li><code>chatnet --tree-brief</code> 必须保留相同命令和用途说明，但不显示参数签名。</li>
 <li>输出不得包含已迁出的 <code>ecnu</code> 业务命令，也不得包含模板 <code>hello</code> 命令。</li>
 <li>密码和 token 只能以选项名出现；值不得写入树或运行摘要。</li>
