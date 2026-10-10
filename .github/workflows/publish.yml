@@ -102,7 +102,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PACKAGE_VERSION: ${{ needs.publish.outputs.version }}
-      CHATARCH_HOME: ${{ runner.temp }}/chatnet-public-state
     steps:
       - uses: actions/setup-python@v5
         with:
@@ -121,6 +120,8 @@ jobs:
           test "${installed}" = true
           python -m pip check
       - name: Verify public command and bundled infrastructure
+        env:
+          CHATARCH_HOME: ${{ runner.temp }}/chatnet-public-state
         run: |
           chatnet --version
           chatnet --tree

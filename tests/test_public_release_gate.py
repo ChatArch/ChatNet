@@ -11,6 +11,9 @@ def test_publish_verifies_public_install_in_fresh_ci_job_without_checkout():
     assert job['needs'] == 'publish'
     assert data['jobs']['publish']['outputs']['version'] == '${{ steps.meta.outputs.version }}'
     assert job['env']['PACKAGE_VERSION'] == '${{ needs.publish.outputs.version }}'
+    assert 'runner.' not in str(job['env']), 'runner context is not available in job-level env'
+    smoke = next(step for step in job['steps'] if step.get('name') == 'Verify public command and bundled infrastructure')
+    assert smoke.get('env', {}).get('CHATARCH_HOME') == '${{ runner.temp }}/chatnet-public-state'
     assert all('actions/checkout' not in step.get('uses', '') for step in job['steps'])
     text = '\n'.join(step.get('run', '') for step in job['steps'])
     assert '--isolated --no-cache-dir --index-url https://pypi.org/simple' in text
