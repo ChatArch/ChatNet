@@ -6,6 +6,10 @@ on:
       - main
       - master
 
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
