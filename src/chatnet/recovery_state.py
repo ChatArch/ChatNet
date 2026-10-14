@@ -127,6 +127,7 @@ def _valid_identity(value):
     if frozenset(value) not in {
         required,
         required | {"profile_fingerprint"},
+        required | {"profile_fingerprint", "fingerprint_version"},
     }:
         return False
     path = (
@@ -149,6 +150,11 @@ def _valid_identity(value):
         and all(type(part) is int and part >= 0 for part in inode)
         and isinstance(value["device_fingerprint"], str)
         and re.fullmatch(r"[0-9a-f]{64}", value["device_fingerprint"]) is not None
+        and (
+            "fingerprint_version" not in value
+            or type(value["fingerprint_version"]) is int
+            and value["fingerprint_version"] == 2
+        )
         and (
             "profile_fingerprint" not in value
             or isinstance(value["profile_fingerprint"], str)
