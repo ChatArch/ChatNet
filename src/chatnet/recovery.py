@@ -287,28 +287,93 @@ class _Adapter:
         except (OSError, RuntimeError):
             raise RecoveryError("module-changed") from None
 
-    def _device_fingerprint(self, device, module):
+    def _uevent(self, device):
         try:
-            relative = device.relative_to(self.sys)
             raw = (device / "uevent").read_bytes()
             if len(raw) > 65536:
-                return ""
-            text = raw.decode("ascii")
-            values = {
-                line.split("=", 1)[0] for line in text.splitlines() if "=" in line
-            }
-            if not values.intersection({"MODALIAS", "PCI_ID", "PRODUCT"}):
-                return ""
+                return b""
+            lines = raw.decode("ascii").splitlines()
+            if not lines or any("=" not in line for line in lines):
+                return b""
+            fields = [line.split("=", 1)[0] for line in lines]
+            if len(fields) != len(set(fields)) or not set(fields).intersection(
+                {"MODALIAS", "PCI_ID", "PRODUCT"}
+            ):
+                return b""
+            return raw
+        except (OSError, UnicodeError, ValueError):
+            return b""
+
+    def _hash_uevent(self, device, module, raw):
+        try:
             material = (
-                str(relative).encode("utf-8")
+                str(device.relative_to(self.sys)).encode("utf-8")
                 + b"\0"
                 + module.encode("ascii")
                 + b"\0"
                 + raw
             )
             return hashlib.sha256(material).hexdigest()
-        except (OSError, UnicodeError, ValueError):
+        except (UnicodeError, ValueError):
             return ""
+
+    def _device_fingerprint(self, device, module):
+        raw = self._uevent(device)
+        if not raw:
+            return ""
+        # DRIVER describes current binding, not the physical device.
+        stable = b"".join(
+            line
+            for line in raw.splitlines(keepends=True)
+            if not line.startswith(b"DRIVER=")
+        )
+        return self._hash_uevent(device, module, stable)
+
+    def _legacy_fingerprint_matches(self, device, module, expected):
+        raw = self._uevent(device)
+        if not raw:
+            return False
+        if self._hash_uevent(device, module, raw) == expected:
+            return True
+        if b"DRIVER=" in raw:
+            return False
+        # The registered module driver supplies the exact old DRIVER value.
+        # Only an exact reconstruction of the old raw hash authorizes migration.
+        try:
+            module_path = (self.sys / "module" / module).resolve(strict=True)
+            if module_path != (self.sys / "module" / module).absolute():
+                return False
+            names = []
+            for link in (module_path / "drivers").iterdir():
+                bus, separator, name = link.name.partition(":")
+                if (
+                    not link.is_symlink()
+                    or not separator
+                    or not re.fullmatch(r"[A-Za-z0-9_-]+", bus)
+                    or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]{0,63}", name)
+                ):
+                    return False
+                driver = link.resolve(strict=True)
+                if (
+                    driver != (self.sys / "bus" / bus / "drivers" / name).absolute()
+                    or (driver / "module").resolve(strict=True) != module_path
+                ):
+                    return False
+                names.append(name)
+            if len(names) != 1:
+                return False
+            driver_line = b"DRIVER=" + names[0].encode("ascii") + b"\n"
+            lines = raw.splitlines(keepends=True)
+            return any(
+                self._hash_uevent(
+                    device,
+                    module,
+                    b"".join(lines[:index]) + driver_line + b"".join(lines[index:]),
+                ) == expected
+                for index in range(len(lines) + 1)
+            )
+        except (OSError, RuntimeError, UnicodeError, ValueError):
+            return False
 
     def module_identity(self, interface):
         try:
@@ -370,9 +435,18 @@ class _Adapter:
             info = device.stat()
         except OSError:
             raise RecoveryError("cached-device-missing") from None
-        if [info.st_dev, info.st_ino] != cached["device_inode"] or (
-            self._device_fingerprint(device, cached["module"])
-            != cached["device_fingerprint"]
+        fingerprint = self._device_fingerprint(device, cached["module"])
+        matches = (
+            fingerprint == cached["device_fingerprint"]
+            if cached.get("fingerprint_version") == 2
+            else self._legacy_fingerprint_matches(
+                device, cached["module"], cached["device_fingerprint"]
+            )
+        )
+        if (
+            [info.st_dev, info.st_ino] != cached["device_inode"]
+            or not fingerprint
+            or not matches
         ):
             raise RecoveryError("cached-device-changed")
         try:
@@ -417,9 +491,45 @@ class _Adapter:
             "missing": True,
             "_device_path": cached["device_path"],
             "_device_inode": cached["device_inode"],
-            "_device_fingerprint": cached["device_fingerprint"],
+            "_device_fingerprint": fingerprint,
             "_profile_fingerprint": cached["profile_fingerprint"],
         }
+
+    def device_ready(self, snapshot):
+        """Confirm that the same sole device is bound and exposes the target Wi-Fi."""
+        device = self.sys / snapshot["_device_path"]
+        try:
+            resolved = device.resolve(strict=True)
+            info = resolved.stat()
+        except (OSError, RuntimeError):
+            raise RecoveryError("device-not-ready") from None
+        if (
+            resolved != device.absolute()
+            or [info.st_dev, info.st_ino] != snapshot["_device_inode"]
+            or self._device_fingerprint(resolved, snapshot["module"])
+            != snapshot["_device_fingerprint"]
+        ):
+            raise RecoveryError("identity-changed")
+        try:
+            module = (resolved / "driver/module").resolve(strict=True)
+            bound = self._module_devices(snapshot["module"])
+        except (OSError, RuntimeError, RecoveryError):
+            raise RecoveryError("device-not-ready") from None
+        if module != (self.sys / "module" / snapshot["module"]).absolute():
+            raise RecoveryError("module-changed")
+        if any(other != resolved for other in bound):
+            raise RecoveryError("shared-module")
+        if resolved not in bound:
+            raise RecoveryError("device-not-ready")
+        root = self.sys / "class/net" / snapshot["interface"]
+        try:
+            linked = (root / "device").resolve(strict=True)
+        except (OSError, RuntimeError):
+            raise RecoveryError("device-not-ready") from None
+        if linked != resolved:
+            raise RecoveryError("identity-changed")
+        if not self.wireless(snapshot["interface"]):
+            raise RecoveryError("device-not-ready")
 
     def reload_guard(self, settings, snapshot):
         if not settings.allow_module_reload:
@@ -627,6 +737,7 @@ def _cached_identity(snapshot):
             "device_path": snapshot["_device_path"],
             "device_inode": snapshot["_device_inode"],
             "device_fingerprint": snapshot["_device_fingerprint"],
+            "fingerprint_version": 2,
             "profile_fingerprint": snapshot["_profile_fingerprint"],
         }
     return None
@@ -911,7 +1022,7 @@ def _execute_recovery(settings, adapter, root, clock, run_id, context, state_io)
             **ids,
         )
 
-        def stage_call(stage, args, *, privileged=False, check=True, timeout=10):
+        def stage_call(stage, args, *, privileged=False, check=True, timeout=10, verify=None):
             _audit_event(
                 state_io,
                 root,
@@ -931,6 +1042,8 @@ def _execute_recovery(settings, adapter, root, clock, run_id, context, state_io)
                     check=check,
                     timeout=timeout,
                 )
+                if verify is not None:
+                    verify()
             except RecoveryError as error:
                 ended_at = _clock_value(clock, context)
                 _audit_event(
@@ -981,6 +1094,7 @@ def _execute_recovery(settings, adapter, root, clock, run_id, context, state_io)
                     "device-ready",
                     ["udevadm", "settle", "--timeout=10"],
                     timeout=15,
+                    verify=lambda: adapter.device_ready(snapshot),
                 )
             else:
                 stage_call(
